@@ -296,6 +296,19 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
     return Math.max(500, legendHeight + 350)
   }, [pieChartData.length])
 
+  // Ordenar intervalos por fecha y hora
+  const sortedIntervals = useMemo(() => {
+    if (!results?.data?.intervals) return []
+    
+    return results.data.intervals
+      .map((interval, originalIndex) => ({ interval, originalIndex }))
+      .sort((a, b) => {
+        const dateA = new Date(`${a.interval.startDate} ${a.interval.startTime}`).getTime()
+        const dateB = new Date(`${b.interval.startDate} ${b.interval.startTime}`).getTime()
+        return dateA - dateB
+      })
+  }, [results?.data?.intervals])
+
   // Early returns después de todos los hooks
   if (!results || !results.success || !results.data) {
     return null
@@ -310,7 +323,7 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
          <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <CardTitle className="text-white text-lg font-semibold">
-              Análisis de navegación por intervalos (Aún en pruebas)
+              Análisis de navegación por intervalos
             </CardTitle>
             <button
               onClick={() => setShowHelp(!showHelp)}
@@ -431,8 +444,8 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
                             </div>
                     <ScrollArea className="w-full" style={{ height: `${listHeight}px` }}>
                       <div className="grid grid-cols-1 gap-2 pr-4">
-                        {results.data.intervals.map((interval, index) => {
-                          const isSelected = selectedIntervals.includes(index)
+                        {sortedIntervals.map(({ interval, originalIndex }) => {
+                          const isSelected = selectedIntervals.includes(originalIndex)
                           const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
                           
                           // Construir el texto de descripción según el tipo
@@ -455,8 +468,8 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
                           
                           return (
                             <div
-                              key={index}
-                              onClick={() => toggleInterval(index)}
+                              key={originalIndex}
+                              onClick={() => toggleInterval(originalIndex)}
                               className="p-3 rounded-md cursor-pointer transition-all"
                               style={{
                                 backgroundColor: isSelected ? '#2C2C2C' : '#1F1F1F',
@@ -467,7 +480,6 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
                                 <div className="flex items-center gap-3 flex-1 min-w-0">
                                   <div className="flex-1 min-w-0">
                                     <div className="font-medium text-sm">
-                                      <span className="text-white">Intervalo {index + 1}: </span>
                                       <span style={{ color: color }}>{description}</span>
                             </div>
                                     <div className="text-gray-400 text-xs mt-1">

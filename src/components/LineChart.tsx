@@ -721,28 +721,6 @@ export function LineChart({ results }: LineChartProps) {
               <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
             </div>
             <div className="flex-1 flex flex-col justify-between pt-2 space-y-1">
-              {/* 0. Número de Intervalo */}
-              <div
-                className="pl-2 pr-2 pt-1 pb-2 rounded-md border h-16 flex flex-col"
-                style={{ backgroundColor: '#2C2C2C', borderColor: hoveredData && !hoveredData.isGap ? '#06B6D4' : '#2C2C2C' }}
-              >
-                <div className="text-xs text-gray-400 leading-tight">Intervalo</div>
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="text-lg font-bold text-cyan-400 text-center">
-                    {hoveredData && !hoveredData.isGap ? (() => {
-                      // Encontrar el índice del intervalo actual
-                      const intervalIndex = results.data?.intervals?.findIndex(interval => 
-                        interval.startDate === hoveredData.intervalStartDate &&
-                        interval.startTime === hoveredData.intervalStartTime &&
-                        interval.endDate === hoveredData.intervalEndDate &&
-                        interval.endTime === hoveredData.intervalEndTime
-                      );
-                      return intervalIndex !== undefined && intervalIndex !== -1 ? `#${intervalIndex + 1}` : '--';
-                    })() : '--'}
-                  </div>
-                </div>
-              </div>
-
               {/* 1. Estado (NavStatus) */}
               <div
                 className="pl-2 pr-2 pt-1 pb-2 rounded-md border h-16 flex flex-col"
