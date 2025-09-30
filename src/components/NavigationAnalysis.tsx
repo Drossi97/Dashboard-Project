@@ -1,9 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { Button } from "./ui/button"
-import { Input } from "./ui/input"
-import { ScrollArea } from "./ui/scroll-area"
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { CSVAnalysisResult } from "../hooks/useCSVProcessor"
 
 interface NavigationAnalysisProps {
@@ -97,13 +94,6 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     return parts[0] * 3600 + parts[1] * 60 + parts[2]
   }, [])
 
-  const secondsToDuration = useCallback((seconds: number): string => {
-    const hours = Math.floor(seconds / 3600)
-    const minutes = Math.floor((seconds % 3600) / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }, [])
-
   const formatDurationWithUnits = useCallback((seconds: number): string => {
     const days = Math.floor(seconds / (24 * 3600))
     const hours = Math.floor((seconds % (24 * 3600)) / 3600)
@@ -119,30 +109,6 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     } else {
       return `${secs}s`
     }
-  }, [])
-
-  // Función para extraer solo la fecha en formato DD/MM/YYYY
-  const formatDateOnly = useCallback((dateTimeString: string): string => {
-    const dateString = dateTimeString.split(' ')[0]
-    const parts = dateString.split('-')
-    if (parts.length !== 3) return dateString
-    const [year, month, day] = parts
-    return `${day}/${month}/${year}`
-  }, [])
-
-  // Función para extraer y formatear la hora en formato HH:MM:SS (sin decimales)
-  const formatTimeOnly = useCallback((dateTimeString: string): string => {
-    const timeString = dateTimeString.split(' ')[1]
-    if (!timeString) return '--:--:--'
-    
-    const parts = timeString.split(':')
-    if (parts.length !== 3) return timeString
-    
-    const hours = parts[0].padStart(2, '0')
-    const minutes = parts[1].padStart(2, '0')
-    const seconds = Math.floor(parseFloat(parts[2])).toString().padStart(2, '0')
-    
-    return `${hours}:${minutes}:${seconds}`
   }, [])
 
   // Función para obtener el color basado en el tipo y puertos
@@ -162,25 +128,14 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     return '#10B981' // Color por defecto
   }, [])
 
-  // Funciones para manejar la selección de intervalos
-  const toggleInterval = useCallback((index: number) => {
-    setSelectedIntervals(prev => {
-      if (prev.includes(index)) {
-        return prev.filter(i => i !== index)
-      } else {
-        return [...prev, index].sort((a, b) => a - b)
-      }
-    })
-  }, [])
-
   const selectAllIntervals = useCallback(() => {
     if (!results?.data?.intervals) return
     setSelectedIntervals(results.data.intervals.map((_, index) => index))
-  }, [results])
+  }, [results, setSelectedIntervals])
 
   const clearSelection = useCallback(() => {
     setSelectedIntervals([])
-  }, [])
+  }, [setSelectedIntervals])
 
   // Seleccionar por tipo de actividad
   const selectByType = useCallback((type: 'docked' | 'maneuvering' | 'transit' | 'undefined') => {
@@ -194,7 +149,7 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
       .filter(index => index !== -1)
     
     setSelectedIntervals(indices)
-  }, [results, classifyInterval])
+  }, [results, classifyInterval, setSelectedIntervals])
 
   // Calcular estadísticas de intervalos seleccionados
   const selectedIntervalsStats = useMemo(() => {
@@ -289,27 +244,6 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     return getPieChartData(selectedIntervalsStats.intervals)
   }, [selectedIntervalsStats, getPieChartData])
 
-  // Calcular altura dinámica de la lista basándose en la cantidad de actividades
-  const listHeight = useMemo(() => {
-    const legendItemHeight = 40 // Altura aproximada de cada item de leyenda
-    const legendHeight = pieChartData.length * legendItemHeight
-    // Si la leyenda es larga, aumentar la lista de intervalos
-    return Math.max(500, legendHeight + 350)
-  }, [pieChartData.length])
-
-  // Ordenar intervalos por fecha y hora
-  const sortedIntervals = useMemo(() => {
-    if (!results?.data?.intervals) return []
-    
-    return results.data.intervals
-      .map((interval, originalIndex) => ({ interval, originalIndex }))
-      .sort((a, b) => {
-        const dateA = new Date(`${a.interval.startDate} ${a.interval.startTime}`).getTime()
-        const dateB = new Date(`${b.interval.startDate} ${b.interval.startTime}`).getTime()
-        return dateA - dateB
-      })
-  }, [results?.data?.intervals])
-
   // Early returns después de todos los hooks
   if (!results || !results.success || !results.data) {
     return null
@@ -344,8 +278,8 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
             <div className="mt-4 p-4 rounded-md text-sm" style={{ backgroundColor: '#2C2C2C', border: '1px solid #4B5563' }}>
               <h4 className="text-white font-semibold mb-2">ℹ️ Cómo usar el análisis por intervalos</h4>
               <ul className="text-gray-300 space-y-2 text-xs">
-                <li><strong className="text-white">Selección manual:</strong> Haz clic en los intervalos de la lista para seleccionarlos/deseleccionarlos</li>
-                <li><strong className="text-white">Botones rápidos:</strong> Usa los botones superiores para seleccionar todos los intervalos de un tipo específico</li>
+                <li><strong className="text-white">Selección desde el gráfico:</strong> Haz clic derecho en los intervalos del gráfico de líneas para seleccionarlos/deseleccionarlos individualmente</li>
+                <li><strong className="text-white">Botones de selección rápida:</strong> Usa los botones superiores para seleccionar todos los intervalos de un tipo específico</li>
                 <li><strong className="text-white">Diagrama de tarta:</strong> Visualiza las proporciones de tiempo de cada actividad en los intervalos seleccionados</li>
                 <li><strong className="text-gray-400">Atracado:</strong> El barco está detenido en un puerto</li>
                 <li><strong className="text-orange-400">Maniobrando:</strong> El barco está maniobrando cerca de un puerto</li>
@@ -356,231 +290,162 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
           )}
         </CardHeader>
         <CardContent>
-              {/* Vista de Selección de Intervalos */}
-                <div className="w-full">
-                {/* Botones de selección */}
-                <div className="mb-4">
-                  <div className="flex gap-2 flex-wrap justify-center items-center">
-                    <button
-                      onClick={selectAllIntervals}
-                      className="px-3 py-1 text-sm relative group"
-                      style={{
-                        backgroundColor: 'transparent',
-                        borderColor: 'transparent',
-                        color: '#9CA3AF'
-                      }}
-                    >
-                      Seleccionar todos
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-                    </button>
-                    <button
-                      onClick={() => selectByType('docked')}
-                      className="px-3 py-1 text-sm relative group"
-                      style={{
-                        backgroundColor: 'transparent',
-                        borderColor: 'transparent',
-                        color: '#6B7280'
-                      }}
-                    >
-                      Solo Atracados
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-gray-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-                    </button>
-                    <button
-                      onClick={() => selectByType('maneuvering')}
-                      className="px-3 py-1 text-sm relative group"
-                      style={{
-                        backgroundColor: 'transparent',
-                        borderColor: 'transparent',
-                        color: '#F59E0B'
-                      }}
-                    >
-                      Solo Maniobrando
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-                    </button>
-                    <button
-                      onClick={() => selectByType('transit')}
-                      className="px-3 py-1 text-sm relative group"
+          <div className="w-full">
+            {/* Botones de selección rápida */}
+            <div className="mb-6">
+              <div className="flex gap-2 flex-wrap justify-center items-center">
+                <button
+                  onClick={selectAllIntervals}
+                  className="px-3 py-1 text-sm relative group"
                   style={{
                     backgroundColor: 'transparent',
                     borderColor: 'transparent',
-                        color: '#10B981'
-                      }}
-                    >
-                      Solo Navegando
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-                    </button>
-                    <button
-                      onClick={() => selectByType('undefined')}
-                      className="px-3 py-1 text-sm relative group"
+                    color: '#9CA3AF'
+                  }}
+                >
+                  Seleccionar todos
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                </button>
+                <button
+                  onClick={() => selectByType('docked')}
+                  className="px-3 py-1 text-sm relative group"
                   style={{
                     backgroundColor: 'transparent',
                     borderColor: 'transparent',
-                        color: '#EF4444'
-                      }}
-                    >
-                      Solo Indefinidos
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-                    </button>
-                    <button
-                      onClick={clearSelection}
-                      className="px-3 py-1 text-sm relative group"
-                          style={{
-                            backgroundColor: 'transparent',
-                            borderColor: 'transparent',
-                        color: '#9CA3AF'
-                      }}
-                    >
-                      Limpiar
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-                    </button>
-                    </div>
+                    color: '#6B7280'
+                  }}
+                >
+                  Solo Atracados
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-gray-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                </button>
+                <button
+                  onClick={() => selectByType('maneuvering')}
+                  className="px-3 py-1 text-sm relative group"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: 'transparent',
+                    color: '#F59E0B'
+                  }}
+                >
+                  Solo Maniobrando
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                </button>
+                <button
+                  onClick={() => selectByType('transit')}
+                  className="px-3 py-1 text-sm relative group"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: 'transparent',
+                    color: '#10B981'
+                  }}
+                >
+                  Solo Navegando
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                </button>
+                <button
+                  onClick={() => selectByType('undefined')}
+                  className="px-3 py-1 text-sm relative group"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: 'transparent',
+                    color: '#EF4444'
+                  }}
+                >
+                  Solo Indefinidos
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="px-3 py-1 text-sm relative group"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: 'transparent',
+                    color: '#9CA3AF'
+                  }}
+                >
+                  Limpiar
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                </button>
+              </div>
+            </div>
+
+            {/* Gráfico de tarta centrado */}
+            <div className="w-full flex justify-center">
+              {selectedIntervalsStats ? (
+                <div className="w-full max-w-3xl flex flex-col">
+                  {/* Gráfico */}
+                  <div className="w-full flex-shrink-0" style={{ height: '400px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieChartData}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={140}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {pieChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
 
-                <div className="flex flex-col lg:flex-row gap-4">
-                  {/* Lista de intervalos */}
-                  <div className="w-full lg:w-1/2">
-                    {/* Contador de selección */}
-                    <div className="text-gray-400 text-sm text-center mb-3">
-                      {selectedIntervals.length} de {results.data.intervals.length} intervalos seleccionados
+                  {/* Leyenda debajo */}
+                  <div className="w-full mt-6">
+                    {/* Total */}
+                    <div className="mb-4 pb-3 border-b" style={{ borderColor: '#4B5563' }}>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-lg text-white">TOTAL</span>
+                        <span className="font-semibold text-lg text-white">
+                          {formatDurationWithUnits(selectedIntervalsStats.totalSeconds)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      {pieChartData.map((activity, index) => {
+                        const totalDuration = selectedIntervalsStats.totalSeconds
+                        const percentage = ((activity.value / totalDuration) * 100).toFixed(1)
+
+                        return (
+                          <div key={`${activity.activity}_${activity.port}_${index}`}
+                               className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <div
+                                className="w-4 h-4 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: activity.color }}
+                              ></div>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-base" style={{ color: activity.color }}>
+                                  {activity.name}
+                                </span>
+                              </div>
                             </div>
-                    <ScrollArea className="w-full" style={{ height: `${listHeight}px` }}>
-                      <div className="grid grid-cols-1 gap-2 pr-4">
-                        {sortedIntervals.map(({ interval, originalIndex }) => {
-                          const isSelected = selectedIntervals.includes(originalIndex)
-                          const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
-                          
-                          // Construir el texto de descripción según el tipo
-                          let description = ''
-                          let color = '#FFFFFF'
-                          
-                          if (classification.type === 'docked') {
-                            description = `Atracado en ${classification.atPort}`
-                            color = getActivityColor('docked', classification.atPort || '')
-                          } else if (classification.type === 'maneuvering') {
-                            description = `Maniobrando en ${classification.atPort}`
-                            color = getActivityColor('maneuvering', classification.atPort || '')
-                          } else if (classification.type === 'transit') {
-                            description = `Navegando ${classification.fromPort} → ${classification.toPort}`
-                            color = getActivityColor('transit', classification.fromPort || '', classification.toPort)
-                          } else {
-                            description = 'Estado indefinido'
-                            color = ACTIVITY_COLORS['undefined']
-                          }
-                          
-                          return (
-                            <div
-                              key={originalIndex}
-                              onClick={() => toggleInterval(originalIndex)}
-                              className="p-3 rounded-md cursor-pointer transition-all"
-                              style={{
-                                backgroundColor: isSelected ? '#2C2C2C' : '#1F1F1F',
-                                border: isSelected ? '2px solid #10B981' : '2px solid transparent'
-                              }}
-                            >
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3 flex-1 min-w-0">
-                                  <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-sm">
-                                      <span style={{ color: color }}>{description}</span>
-                            </div>
-                                    <div className="text-gray-400 text-xs mt-1">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-white">{formatDateOnly(`${interval.startDate}`)}</span>
-                                        <span>·</span>
-                                        <span>{formatTimeOnly(`${interval.startDate} ${interval.startTime}`)} - {formatTimeOnly(`${interval.endDate} ${interval.endTime}`)}</span>
+                            <div className="text-right flex-shrink-0 ml-4">
+                              <span className="font-medium text-base" style={{ color: activity.color }}>
+                                {formatDurationWithUnits(activity.value)}
+                              </span>
+                              <span className="text-gray-400 text-sm ml-2">{percentage}%</span>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                                <div className="text-right flex-shrink-0 ml-4">
-                                  <div className="text-gray-300 text-sm">{formatDurationWithUnits(durationToSeconds(interval.duration))}</div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          </ScrollArea>
-                        </div>
-
-                  {/* Gráfico de tarta */}
-                        <div className="w-full lg:w-1/2">
-                    {selectedIntervalsStats ? (
-                      <div className="w-full flex flex-col" style={{ height: `${listHeight}px` }}>
-                        {/* Gráfico */}
-                        <div className="w-full flex-shrink-0" style={{ height: '350px' }}>
-                          <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                              <Pie
-                                data={pieChartData}
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={120}
-                                fill="#8884d8"
-                                dataKey="value"
-                              >
-                                {pieChartData.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                              </Pie>
-                            </PieChart>
-                          </ResponsiveContainer>
-                        </div>
-
-                        {/* Leyenda debajo */}
-                        <div className="w-full mt-4 flex-1">
-                          {/* Total */}
-                          <div className="mb-3 pb-2 border-b" style={{ borderColor: '#4B5563' }}>
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-sm text-white">TOTAL</span>
-                              <span className="font-semibold text-sm text-white">
-                                {formatDurationWithUnits(selectedIntervalsStats.totalSeconds)}
-                              </span>
-                      </div>
-                </div>
-                          
-                          <div className="grid grid-cols-1 gap-2">
-                            {pieChartData.map((activity, index) => {
-                              const totalDuration = selectedIntervalsStats.totalSeconds
-                          const percentage = ((activity.value / totalDuration) * 100).toFixed(1)
-
-                          return (
-                                <div key={`${activity.activity}_${activity.port}_${index}`}
-                                     className="flex items-center justify-between w-full">
-                                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                                    <div
-                                      className="w-3 h-3 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: activity.color }}
-                                ></div>
-                                <div className="flex-1 min-w-0">
-                                      <span className="font-medium text-sm" style={{ color: activity.color }}>
-                                        {activity.name}
-                                      </span>
-                                </div>
-                              </div>
-                              <div className="text-right flex-shrink-0 ml-4">
-                                    <span className="font-medium text-sm" style={{ color: activity.color }}>
-                                      {formatDurationWithUnits(activity.value)}
-                                    </span>
-                                    <span className="text-gray-400 text-xs ml-2">{percentage}%</span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                        </div>
-                              </div>
-          ) : (
-                      <div className="flex items-center justify-center h-full">
-                        <div className="text-center text-gray-400">
-                          <p className="text-lg mb-2">Selecciona intervalos para ver las estadísticas</p>
-                          <p className="text-sm">Haz clic en los intervalos de la izquierda o usa los botones de arriba</p>
-                            </div>
-                  </div>
-                    )}
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-center justify-center py-20">
+                  <div className="text-center text-gray-400">
+                    <p className="text-xl mb-2">Selecciona intervalos para ver las estadísticas</p>
+                    <p className="text-sm">Haz clic derecho en los intervalos del gráfico de líneas para seleccionarlos</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
   )
