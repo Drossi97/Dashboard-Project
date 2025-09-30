@@ -1,36 +1,13 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react"
+import React, { useState, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
-import { Badge } from "./ui/badge"
 import { Button } from "./ui/button"
+import { Input } from "./ui/input"
 import { ScrollArea } from "./ui/scroll-area"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { CSVAnalysisResult } from "../hooks/useCSVProcessor"
 
 interface NavigationAnalysisProps {
   results: CSVAnalysisResult | null
-}
-
-interface RouteSegment {
-  id: string
-  startPort: string
-  endPort: string
-  startTime: string
-  endTime: string
-  totalDuration: string
-  totalSeconds: number
-  intervals: any[]
-  avgSpeed: number | null
-  distance: number
-  type: 'complete' | 'incomplete'
-}
-
-interface PortActivity {
-  id: string
-  name: string
-  duration: number
-  type: 'docked' | 'maneuvering' | 'transit' | 'undefined'
-  port: string
-  color: string
 }
 
 // Colores para cada tipo de actividad portuaria
@@ -41,18 +18,76 @@ const ACTIVITY_COLORS: Record<string, string> = {
   "maneuvering_ceuta": "#F59E0B", // Amarillo para maniobrando en Ceuta
   "maneuvering_algeciras": "#D97706", // Amarillo oscuro para maniobrando en Algeciras
   "maneuvering_tangermed": "#B45309", // Amarillo más oscuro para maniobrando en TangerMed
-  "transit_ceuta_algeciras": "#10B981", // Verde para tránsito Ceuta → Algeciras
-  "transit_ceuta_tangermed": "#059669", // Verde oscuro para tránsito Ceuta → TangerMed
-  "transit_algeciras_ceuta": "#047857", // Verde más oscuro para tránsito Algeciras → Ceuta
-  "transit_algeciras_tangermed": "#065F46", // Verde muy oscuro para tránsito Algeciras → TangerMed
-  "transit_tangermed_ceuta": "#064E3B", // Verde esmeralda oscuro para tránsito TangerMed → Ceuta
-  "transit_tangermed_algeciras": "#0F766E", // Verde azulado para tránsito TangerMed → Algeciras
+  "transit_ceuta_algeciras": "#10B981", // Verde para navegando Ceuta → Algeciras
+  "transit_ceuta_tangermed": "#059669", // Verde oscuro para navegando Ceuta → TangerMed
+  "transit_algeciras_ceuta": "#047857", // Verde más oscuro para navegando Algeciras → Ceuta
+  "transit_algeciras_tangermed": "#065F46", // Verde muy oscuro para navegando Algeciras → TangerMed
+  "transit_tangermed_ceuta": "#064E3B", // Verde esmeralda oscuro para navegando TangerMed → Ceuta
+  "transit_tangermed_algeciras": "#0F766E", // Verde azulado para navegando TangerMed → Algeciras
   "undefined": "#EF4444", // Rojo para intervalos indefinidos
 }
 
 export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
-  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'routes' | 'activities'>('routes')
+  const [selectedIntervals, setSelectedIntervals] = useState<number[]>([]) // Índices de intervalos seleccionados
+  const [showHelp, setShowHelp] = useState<boolean>(false)
+
+  // Función de clasificación de intervalos (igual que LineChart.tsx)
+  const classifyInterval = useCallback((
+    navStatus: string,
+    startPort: any | undefined,
+    endPort: any | undefined
+  ) => {
+    // If no port data available
+    if (!startPort || !endPort) {
+      return {
+        type: "undefined" as const,
+        description: "undefined - no port data available"
+      };
+    }
+
+    const samePort = startPort.name === endPort.name;
+    const startDistanceDocked = startPort.distance < 4; // 4 km para atracado
+    const endDistanceDocked = endPort.distance < 4;
+    const startDistanceManeuvering = startPort.distance < 10; // 10 km para maniobrando
+    const endDistanceManeuvering = endPort.distance < 10;
+    const maxDistanceFromAnyPort = Math.max(startPort.distance, endPort.distance) > 40; // > 40 km = indefinido
+
+    // Rule 1: Docked (atracado) - requiere estar a < 4 km del puerto
+    if (navStatus === "0.0" && samePort && startDistanceDocked && endDistanceDocked) {
+      return {
+        type: "docked" as const,
+        description: `docked at ${startPort.name}`,
+        atPort: startPort.name
+      };
+    }
+
+    // Rule 2: Maneuvering (maniobrando) - requiere estar a < 10 km del puerto
+    if (navStatus === "1.0" && samePort && startDistanceManeuvering && endDistanceManeuvering) {
+      return {
+        type: "maneuvering" as const,
+        description: `maneuvering at ${startPort.name}`,
+        atPort: startPort.name
+      };
+    }
+
+    // Rule 3: Transit (navegando)
+    if (navStatus === "2.0" && !samePort) {
+      return {
+        type: "transit" as const,
+        description: `navegando from ${startPort.name} to ${endPort.name}`,
+        fromPort: startPort.name,
+        toPort: endPort.name
+      };
+    }
+
+    // Rule 4: Undefined (indefinido) - incluye casos donde el barco está > 40 km del puerto más cercano
+    return {
+      type: "undefined" as const,
+      description: maxDistanceFromAnyPort
+        ? "Estado indefinido - demasiado lejos de puertos (> 40 km)"
+        : "Estado indefinido - condiciones no cumplidas"
+    };
+  }, []);
 
   // Funciones utilitarias
   const durationToSeconds = useCallback((duration: string): number => {
@@ -126,287 +161,101 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
     return '#10B981' // Color por defecto
   }, [])
 
-  // Calcular rutas completas
-  const routesData = useMemo(() => {
-    // Early return si no hay datos
-    if (!results || !results.success || !results.data) {
-      return []
-    }
+  // Funciones para manejar la selección de intervalos
+  const toggleInterval = useCallback((index: number) => {
+    setSelectedIntervals(prev => {
+      if (prev.includes(index)) {
+        return prev.filter(i => i !== index)
+      } else {
+        return [...prev, index].sort((a, b) => a - b)
+      }
+    })
+  }, [])
+
+  const selectAllIntervals = useCallback(() => {
+    if (!results?.data?.intervals) return
+    setSelectedIntervals(results.data.intervals.map((_, index) => index))
+  }, [results])
+
+  const clearSelection = useCallback(() => {
+    setSelectedIntervals([])
+  }, [])
+
+  // Seleccionar por tipo de actividad
+  const selectByType = useCallback((type: 'docked' | 'maneuvering' | 'transit' | 'undefined') => {
+    if (!results?.data?.intervals) return
     
-    const routes: RouteSegment[] = []
-    const intervals = results.data?.intervals || []
+    const indices = results.data.intervals
+      .map((interval, index) => {
+        const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
+        return classification.type === type ? index : -1
+      })
+      .filter(index => index !== -1)
+    
+    setSelectedIntervals(indices)
+  }, [results, classifyInterval])
 
-    if (intervals.length < 3) return routes
-
-    let currentRoute: any = null
-    let routeStartIndex = 0
-
-    for (let i = 0; i < intervals.length; i++) {
-      const interval = intervals[i]
-      const prevInterval = i > 0 ? intervals[i - 1] : null
-      const nextInterval = i < intervals.length - 1 ? intervals[i + 1] : null
-
-      if (interval.navStatus === "0.0" && prevInterval &&
-          (prevInterval.navStatus === "1.0" || prevInterval.navStatus === "2.0") &&
-          interval.startPort && interval.endPort &&
-          interval.startPort.name === interval.endPort.name) {
-
-        if (currentRoute) {
-          completeRoute(currentRoute, routeStartIndex, i - 1)
-        }
-
-        currentRoute = {
-          startPort: interval.startPort.name,
-          startTime: interval.startTime,
-          startDate: interval.startDate,
-          intervals: []
-        }
-        routeStartIndex = i
-      }
-
-      if (currentRoute) {
-        currentRoute.intervals.push(interval)
-
-        if (interval.navStatus === "0.0" &&
-            nextInterval &&
-            (nextInterval.navStatus === "1.0" || nextInterval.navStatus === "2.0") &&
-            interval.startPort && interval.endPort &&
-            interval.startPort.name !== interval.endPort.name) {
-
-          completeRoute(currentRoute, routeStartIndex, i)
-          currentRoute = null
-        }
-      }
+  // Calcular estadísticas de intervalos seleccionados
+  const selectedIntervalsStats = useMemo(() => {
+    if (!results?.data?.intervals || selectedIntervals.length === 0) {
+      return null
     }
 
-    if (currentRoute) {
-      completeRoute(currentRoute, routeStartIndex, intervals.length - 1)
-    }
-
-    return routes
-
-    function completeRoute(route: any, startIndex: number, endIndex: number) {
-      if (route.intervals.length === 0) return
-
-      const startInterval = route.intervals[0]
-      const endInterval = route.intervals[route.intervals.length - 1]
+    const intervals = results.data.intervals
+    const selected = selectedIntervals.map(index => intervals[index])
 
       let totalSeconds = 0
-      route.intervals.forEach((interval: any) => {
+    selected.forEach(interval => {
         totalSeconds += durationToSeconds(interval.duration)
       })
 
-      const validSpeeds = route.intervals
-        .map((interval: any) => interval.avgSpeed)
-        .filter((speed: number | null) => speed !== null && speed > 0)
-
-      const avgSpeed = validSpeeds.length > 0
-        ? Math.round((validSpeeds.reduce((a: number, b: number) => a + b, 0) / validSpeeds.length) * 100) / 100
-        : null
-
-      let endPort = startInterval.startPort?.name || 'Desconocido'
-      for (let i = route.intervals.length - 1; i >= 0; i--) {
-        const interval = route.intervals[i]
-        if (interval.endPort && interval.endPort.name !== startInterval.startPort?.name) {
-          endPort = interval.endPort.name
-          break
-        }
-      }
-
-      let distance = 0
-      if (startInterval.startLat && startInterval.startLon && endInterval.endLat && endInterval.endLon) {
-        const R = 6371
-        const dLat = (endInterval.endLat - startInterval.startLat) * (Math.PI / 180)
-        const dLon = (endInterval.endLon - startInterval.startLon) * (Math.PI / 180)
-
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-          Math.cos(startInterval.startLat * (Math.PI / 180)) * Math.cos(endInterval.endLat * (Math.PI / 180)) *
-          Math.sin(dLon / 2) * Math.sin(dLon / 2)
-
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-        distance = Math.round(R * c * 100) / 100
-      }
-
-      routes.push({
-        id: `route_${routes.length + 1}`,
-        startPort: startInterval.startPort?.name || 'Desconocido',
-        endPort: endPort,
-        startTime: `${startInterval.startDate} ${startInterval.startTime}`,
-        endTime: `${endInterval.endDate} ${endInterval.endTime}`,
-        totalDuration: secondsToDuration(totalSeconds),
+    return {
+      count: selected.length,
         totalSeconds: totalSeconds,
-        intervals: route.intervals,
-        avgSpeed: avgSpeed,
-        distance: distance,
-        type: 'complete'
-      })
+      intervals: selected
     }
-  }, [results, durationToSeconds, secondsToDuration])
+  }, [results, selectedIntervals, durationToSeconds])
 
-  // Procesar actividades portuarias
-  const portActivities = useMemo(() => {
-    if (!results || !results.success || !results.data) {
-      return []
-    }
 
-    return results.data.intervals.reduce((acc: PortActivity[], interval) => {
-      const durationSeconds = durationToSeconds(interval.duration)
-
-      if (!interval.startPort || !interval.endPort) {
-        return acc
-      }
-
-      const startPort = interval.startPort.name
-      const endPort = interval.endPort.name
-      const navStatus = interval.navStatus
-
-      // Determinar el tipo de actividad basado en navStatus y puertos
-      const startDistanceDocked = interval.startPort.distance < 4; // 4 km para atracado
-      const endDistanceDocked = interval.endPort.distance < 4;
-      const startDistanceManeuvering = interval.startPort.distance < 10; // 10 km para maniobrando
-      const endDistanceManeuvering = interval.endPort.distance < 10;
-      const maxDistanceFromAnyPort = Math.max(interval.startPort.distance, interval.endPort.distance) > 40; // > 40 km = indefinido
-
-      // Rule 1: Docked (atracado) - requiere estar a < 4 km del puerto
-      if (navStatus === "0.0" && startPort === endPort && startDistanceDocked && endDistanceDocked) {
-        // Atracado en un puerto específico
-        const activityId = `docked_${startPort.toLowerCase().replace(' ', '').replace('tanger med', 'tangermed')}`
-        acc.push({
-          id: activityId,
-          name: `Atracado en ${startPort}`,
-          duration: durationSeconds,
-          type: 'docked',
-          port: startPort,
-          color: getActivityColor('docked', startPort)
-        })
-      // Rule 2: Maneuvering (maniobrando) - requiere estar a < 10 km del puerto
-      } else if (navStatus === "1.0" && startPort === endPort && startDistanceManeuvering && endDistanceManeuvering) {
-        // Maniobrando en un puerto específico
-        const activityId = `maneuvering_${startPort.toLowerCase().replace(' ', '').replace('tanger med', 'tangermed')}`
-        acc.push({
-          id: activityId,
-          name: `Maniobrando en ${startPort}`,
-          duration: durationSeconds,
-          type: 'maneuvering',
-          port: startPort,
-          color: getActivityColor('maneuvering', startPort)
-        })
-      } else if (navStatus === "2.0" && startPort !== endPort) {
-        // Navegando desde un puerto hacia otro
-        const routeId = `${startPort.toLowerCase().replace(' ', '').replace('tanger med', 'tangermed')}_${endPort.toLowerCase().replace(' ', '').replace('tanger med', 'tangermed')}`
-        const transitActivityId = `transit_${routeId}`
-        acc.push({
-          id: transitActivityId,
-          name: `Navegando ${startPort} → ${endPort}`,
-          duration: durationSeconds,
-          type: 'transit',
-          port: `${startPort} → ${endPort}`,
-          color: getActivityColor('transit', startPort, endPort)
-        })
-      } else {
-        // Intervalos indefinidos (no cumplen ninguna condición específica o están > 40 km del puerto más cercano)
-        acc.push({
-          id: 'undefined',
-          name: maxDistanceFromAnyPort ? 'Estado indefinido' : 'Indefinido',
-          duration: durationSeconds,
-          type: 'undefined',
-          port: maxDistanceFromAnyPort ? 'Estado indefinido' : 'Desconocido',
-          color: ACTIVITY_COLORS['undefined']
-        })
-      }
-
-      return acc
-    }, [])
-  }, [results, durationToSeconds, getActivityColor])
-
-  // Agrupar actividades por tipo
-  const activityGroups = useMemo(() => {
-    return portActivities.reduce((acc: any, activity) => {
-      if (!acc[activity.id]) {
-        acc[activity.id] = {
-          id: activity.id,
-          name: activity.name,
-          duration: 0,
-          type: activity.type,
-          port: activity.port,
-          color: activity.color,
-          count: 0
-        }
-      }
-
-      acc[activity.id].duration += activity.duration
-      acc[activity.id].count++
-
-      return acc
-    }, {})
-  }, [portActivities])
-
-  // Convertir actividades a formato para el gráfico
-  const chartData = useMemo(() => {
-    return Object.values(activityGroups)
-      .map((group: any) => ({
-        id: group.id,
-        name: group.name,
-        value: group.duration,
-        type: group.type,
-        port: group.port,
-        color: group.color
-      }))
-      .sort((a: any, b: any) => b.value - a.value) // Ordenar por duración descendente
-  }, [activityGroups])
-
-  // Obtener el trayecto seleccionado
-  const selectedRoute = useMemo(() =>
-    selectedRouteId ? routesData.find(route => route.id === selectedRouteId) : null,
-    [selectedRouteId, routesData]
-  )
-
-  // Auto-seleccionar el primer trayecto
-  useEffect(() => {
-    if (routesData.length > 0 && !selectedRouteId) {
-      setSelectedRouteId(routesData[0].id)
-    }
-  }, [routesData, selectedRouteId])
-
-  // Función para obtener datos para el gráfico de tarta de rutas (memoizada)
+  // Función para obtener datos para el gráfico de tarta de intervalos seleccionados
   const getPieChartData = useCallback((intervals: any[]) => {
     const activityGroups: { [key: string]: { duration: number; count: number; color: string } } = {}
 
     intervals.forEach(interval => {
-      const status = interval.navStatus
-      const statusName = getStatusName(status)
+      // Clasificar el intervalo usando la misma lógica que LineChart
+      const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
 
-      // Para navegación, no especificar puerto ya que es en tránsito
-      if (status === "2.0") {
-        const key = statusName
+      let key: string
+      let color: string
 
-        if (!activityGroups[key]) {
-          activityGroups[key] = {
-            duration: 0,
-            count: 0,
-            color: getActivityColor('transit', '', '')
-          }
-        }
-
-        activityGroups[key].duration += durationToSeconds(interval.duration)
-        activityGroups[key].count += 1
+      if (classification.type === 'docked') {
+        // Atracado en un puerto específico
+        key = `Atracado_${classification.atPort}`
+        color = getActivityColor('docked', classification.atPort || '')
+      } else if (classification.type === 'maneuvering') {
+        // Maniobrando en un puerto específico
+        key = `Maniobrando_${classification.atPort}`
+        color = getActivityColor('maneuvering', classification.atPort || '')
+      } else if (classification.type === 'transit') {
+        // Navegando entre puertos
+        key = `Navegando ${classification.fromPort} → ${classification.toPort}`
+        color = getActivityColor('transit', classification.fromPort || '', classification.toPort)
       } else {
-        // Para atracado y maniobrando, especificar el puerto
-        const port = interval.startPort?.name || interval.endPort?.name || 'Desconocido'
-        const key = `${statusName}_${port}`
+        // Estado indefinido
+        key = 'Indefinido'
+        color = ACTIVITY_COLORS['undefined']
+      }
 
         if (!activityGroups[key]) {
-          const activityType = status === "0.0" ? 'docked' : 'maneuvering'
           activityGroups[key] = {
             duration: 0,
             count: 0,
-            color: getActivityColor(activityType, port)
+          color: color
           }
         }
 
         activityGroups[key].duration += durationToSeconds(interval.duration)
         activityGroups[key].count += 1
-      }
     })
 
     return Object.entries(activityGroups).map(([key, data]) => {
@@ -431,212 +280,208 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
         }
       }
     }).sort((a, b) => b.value - a.value)
-  }, [getActivityColor, durationToSeconds])
+  }, [classifyInterval, getActivityColor, durationToSeconds])
 
-  // Función para obtener el nombre del estado de navegación (memoizada)
-  const getStatusName = useCallback((navStatus: string): string => {
-    switch (navStatus) {
-      case "0.0": return "Atracado"
-      case "1.0": return "Maniobrando"
-      case "2.0": return "Navegando"
-      default: return "Indefinido"
-    }
-  }, [])
-
-  // Memoizar los datos del gráfico para evitar recálculos innecesarios
+  // Memoizar los datos del gráfico de intervalos seleccionados
   const pieChartData = useMemo(() => {
-    if (!selectedRoute) return []
-    return getPieChartData(selectedRoute.intervals)
-  }, [selectedRoute, getPieChartData])
+    if (!selectedIntervalsStats) return []
+    return getPieChartData(selectedIntervalsStats.intervals)
+  }, [selectedIntervalsStats, getPieChartData])
 
-  // Tooltip personalizado para el gráfico (memoizado)
-  const CustomTooltip = useCallback(({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload
-      const totalDuration = activeTab === 'routes' && selectedRoute 
-        ? selectedRoute.totalSeconds 
-        : chartData.reduce((sum, item) => sum + item.value, 0)
-      const percentage = ((data.value / totalDuration) * 100).toFixed(1)
-
-      return (
-        <div className="p-3 rounded-lg shadow-lg" style={{ backgroundColor: '#2C2C2C', border: '1px solid #4B5563' }}>
-          <p className="text-white font-medium">{data.name}</p>
-          <p className="text-gray-300">
-            {formatDurationWithUnits(data.value)} ({percentage}%)
-          </p>
-          <p className="text-gray-400 text-sm">
-            {data.count} intervalo{data.count !== 1 ? 's' : ''}
-          </p>
-        </div>
-      )
-    }
-    return null
-  }, [selectedRoute, activeTab, chartData, formatDurationWithUnits])
+  // Calcular altura dinámica de la lista basándose en la cantidad de actividades
+  const listHeight = useMemo(() => {
+    const legendItemHeight = 40 // Altura aproximada de cada item de leyenda
+    const legendHeight = pieChartData.length * legendItemHeight
+    // Si la leyenda es larga, aumentar la lista de intervalos
+    return Math.max(500, legendHeight + 350)
+  }, [pieChartData.length])
 
   // Early returns después de todos los hooks
   if (!results || !results.success || !results.data) {
     return null
   }
 
-  if (routesData.length === 0 && chartData.length === 0) {
+  if (!results.data.intervals || results.data.intervals.length === 0) {
     return null
   }
 
   return (
     <Card style={{ backgroundColor: '#171717', borderColor: '#2C2C2C' }}>
          <CardHeader className="pb-2">
-           <div className="flex flex-col gap-2">
-             {/* Fila del título */}
-             <div className="flex justify-start">
-               <CardTitle className="text-white text-lg font-semibold">
-                 Análisis de navegación (Aún en pruebas)
-               </CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle className="text-white text-lg font-semibold">
+              Análisis de navegación por intervalos (Aún en pruebas)
+            </CardTitle>
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold hover:bg-gray-700 transition-colors duration-200"
+              style={{
+                backgroundColor: 'transparent',
+                border: '1px solid #4B5563',
+                color: '#9CA3AF'
+              }}
+            >
+              ?
+            </button>
+          </div>
+
+          {/* Cuadro de ayuda */}
+          {showHelp && (
+            <div className="mt-4 p-4 rounded-md text-sm" style={{ backgroundColor: '#2C2C2C', border: '1px solid #4B5563' }}>
+              <h4 className="text-white font-semibold mb-2">ℹ️ Cómo usar el análisis por intervalos</h4>
+              <ul className="text-gray-300 space-y-2 text-xs">
+                <li><strong className="text-white">Selección manual:</strong> Haz clic en los intervalos de la lista para seleccionarlos/deseleccionarlos</li>
+                <li><strong className="text-white">Botones rápidos:</strong> Usa los botones superiores para seleccionar todos los intervalos de un tipo específico</li>
+                <li><strong className="text-white">Diagrama de tarta:</strong> Visualiza las proporciones de tiempo de cada actividad en los intervalos seleccionados</li>
+                <li><strong className="text-gray-400">Atracado:</strong> El barco está detenido en un puerto</li>
+                <li><strong className="text-orange-400">Maniobrando:</strong> El barco está maniobrando cerca de un puerto</li>
+                <li><strong className="text-green-400">Navegando:</strong> El barco está en tránsito entre puertos diferentes</li>
+                <li><strong className="text-red-400">Indefinido:</strong> Estados que no cumplen las condiciones anteriores</li>
+              </ul>
              </div>
-             {/* Fila de los botones */}
-             <div className="flex justify-center">
-               <div className="flex gap-1">
-                <Button
-                  variant={activeTab === 'activities' ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActiveTab('activities')}
-                  className="text-sm px-4 py-2 h-9 relative"
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
-                    color: '#D1D5DB',
-                    fontSize: '14px'
-                  }}
-                >
-                  Estadísticas de navegación completa
-                  {activeTab === 'activities' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60"></div>
-                  )}
-                </Button>
-                <Button
-                  variant={activeTab === 'routes' ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setActiveTab('routes')}
-                  className="text-sm px-4 py-2 h-9 relative"
-                  style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
-                    color: '#D1D5DB',
-                    fontSize: '14px'
-                  }}
-                >
-                  Estadísticas de navegación por trayectos
-                  {activeTab === 'routes' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60"></div>
-                  )}
-                </Button>
-               </div>
-             </div>
-           </div>
+          )}
         </CardHeader>
         <CardContent>
-          {activeTab === 'routes' ? (
-            <>
-              {/* Vista de Trayectos */}
-              {routesData.length > 0 && (
+              {/* Vista de Selección de Intervalos */}
                 <div className="w-full">
-                  {/* Selector de trayectos */}
-                  <div className="flex items-center justify-center gap-3 mb-6">
-                    <span className="text-gray-400 text-base">Trayecto:</span>
-                    <div className="flex gap-2">
-                      {routesData.map((route, index) => (
-                        <Button
-                          key={route.id}
-                          variant={selectedRouteId === route.id ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => setSelectedRouteId(route.id)}
-                          className="text-sm px-3 py-2 h-9 relative"
+                {/* Botones de selección */}
+                <div className="mb-4">
+                  <div className="flex gap-2 flex-wrap justify-center items-center">
+                    <button
+                      onClick={selectAllIntervals}
+                      className="px-3 py-1 text-sm relative group"
+                      style={{
+                        backgroundColor: 'transparent',
+                        borderColor: 'transparent',
+                        color: '#9CA3AF'
+                      }}
+                    >
+                      Seleccionar todos
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                    </button>
+                    <button
+                      onClick={() => selectByType('docked')}
+                      className="px-3 py-1 text-sm relative group"
+                      style={{
+                        backgroundColor: 'transparent',
+                        borderColor: 'transparent',
+                        color: '#6B7280'
+                      }}
+                    >
+                      Solo Atracados
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-gray-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                    </button>
+                    <button
+                      onClick={() => selectByType('maneuvering')}
+                      className="px-3 py-1 text-sm relative group"
+                      style={{
+                        backgroundColor: 'transparent',
+                        borderColor: 'transparent',
+                        color: '#F59E0B'
+                      }}
+                    >
+                      Solo Maniobrando
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                    </button>
+                    <button
+                      onClick={() => selectByType('transit')}
+                      className="px-3 py-1 text-sm relative group"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: 'transparent',
+                        color: '#10B981'
+                      }}
+                    >
+                      Solo Navegando
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                    </button>
+                    <button
+                      onClick={() => selectByType('undefined')}
+                      className="px-3 py-1 text-sm relative group"
+                  style={{
+                    backgroundColor: 'transparent',
+                    borderColor: 'transparent',
+                        color: '#EF4444'
+                      }}
+                    >
+                      Solo Indefinidos
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                    </button>
+                    <button
+                      onClick={clearSelection}
+                      className="px-3 py-1 text-sm relative group"
                           style={{
                             backgroundColor: 'transparent',
                             borderColor: 'transparent',
-                            color: '#D1D5DB',
-                            fontSize: '14px'
-                          }}
-                        >
-                          {index + 1}
-                          {selectedRouteId === route.id && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60"></div>
-                          )}
-                        </Button>
-                      ))}
+                        color: '#9CA3AF'
+                      }}
+                    >
+                      Limpiar
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                    </button>
                     </div>
                   </div>
 
-                  {selectedRoute && (
-                    <>
-                      {/* Información del trayecto principal */}
-                      <div className="mb-4">
-                        <div className="p-4 rounded-md w-full"
-                             style={{ backgroundColor: '#2C2C2C' }}>
-                          {/* Trayecto centrado arriba */}
-                          <div className="text-center mb-4">
-                            <div className="text-white font-medium text-xl">
-                              {selectedRoute.startPort} → {selectedRoute.endPort}
+                <div className="flex flex-col lg:flex-row gap-4">
+                  {/* Lista de intervalos */}
+                  <div className="w-full lg:w-1/2">
+                    {/* Contador de selección */}
+                    <div className="text-gray-400 text-sm text-center mb-3">
+                      {selectedIntervals.length} de {results.data.intervals.length} intervalos seleccionados
                             </div>
-                          </div>
-
-                          {/* Separador */}
-                          <div className="border-t border-gray-600 mb-4"></div>
-
-                          {/* Información de tiempo, fecha y duración abajo */}
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-center">
-                            {/* Fecha */}
-                            <div>
-                              <div className="text-gray-400 text-sm mb-1">Fecha</div>
-                              <div className="text-white font-medium text-base">{formatDateOnly(selectedRoute.startTime)}</div>
+                    <ScrollArea className="w-full" style={{ height: `${listHeight}px` }}>
+                      <div className="grid grid-cols-1 gap-2 pr-4">
+                        {results.data.intervals.map((interval, index) => {
+                          const isSelected = selectedIntervals.includes(index)
+                          const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
+                          
+                          // Construir el texto de descripción según el tipo
+                          let description = ''
+                          let color = '#FFFFFF'
+                          
+                          if (classification.type === 'docked') {
+                            description = `Atracado en ${classification.atPort}`
+                            color = getActivityColor('docked', classification.atPort || '')
+                          } else if (classification.type === 'maneuvering') {
+                            description = `Maniobrando en ${classification.atPort}`
+                            color = getActivityColor('maneuvering', classification.atPort || '')
+                          } else if (classification.type === 'transit') {
+                            description = `Navegando ${classification.fromPort} → ${classification.toPort}`
+                            color = getActivityColor('transit', classification.fromPort || '', classification.toPort)
+                          } else {
+                            description = 'Estado indefinido'
+                            color = ACTIVITY_COLORS['undefined']
+                          }
+                          
+                          return (
+                            <div
+                              key={index}
+                              onClick={() => toggleInterval(index)}
+                              className="p-3 rounded-md cursor-pointer transition-all"
+                              style={{
+                                backgroundColor: isSelected ? '#2C2C2C' : '#1F1F1F',
+                                border: isSelected ? '2px solid #10B981' : '2px solid transparent'
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3 flex-1 min-w-0">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-sm">
+                                      <span className="text-white">Intervalo {index + 1}: </span>
+                                      <span style={{ color: color }}>{description}</span>
                             </div>
-
-                            {/* Hora de inicio */}
-                            <div>
-                              <div className="text-gray-400 text-sm mb-1">Hora de inicio</div>
-                              <div className="text-white font-medium text-base">{formatTimeOnly(selectedRoute.startTime)}</div>
-                            </div>
-
-                            {/* Hora de fin */}
-                            <div>
-                              <div className="text-gray-400 text-sm mb-1">Hora de fin</div>
-                              <div className="text-white font-medium text-base">{formatTimeOnly(selectedRoute.endTime)}</div>
-                            </div>
-
-                            {/* Duración */}
-                            <div>
-                              <div className="text-gray-400 text-sm mb-1">Duración</div>
-                              <div className="text-white font-medium text-base">{formatDurationWithUnits(selectedRoute.totalSeconds)}</div>
+                                    <div className="text-gray-400 text-xs mt-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-white">{formatDateOnly(`${interval.startDate}`)}</span>
+                                        <span>·</span>
+                                        <span>{formatTimeOnly(`${interval.startDate} ${interval.startTime}`)} - {formatTimeOnly(`${interval.endDate} ${interval.endTime}`)}</span>
                             </div>
                           </div>
                         </div>
                       </div>
-
-                      {/* Layout horizontal para actividades y gráfico */}
-                      <div className="flex flex-col lg:flex-row gap-4">
-                        {/* Actividades del trayecto */}
-                        <div className="w-full lg:w-1/2">
-                          <ScrollArea className="h-[350px] w-full">
-                            <div className="grid grid-cols-1 gap-1 pr-4">
-                              {pieChartData.map((activity, index) => {
-                                const totalDuration = selectedRoute.totalSeconds
-                                const percentage = ((activity.value / totalDuration) * 100).toFixed(1)
-
-                                return (
-                                  <div key={`${activity.activity}_${activity.port}_${index}`}
-                                       className="p-3 rounded-md flex items-center justify-between w-full"
-                                       style={{ backgroundColor: '#2C2C2C' }}>
-                                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                                      <div
-                                        className="w-5 h-5 rounded-full flex-shrink-0"
-                                        style={{ backgroundColor: activity.color }}
-                                      ></div>
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-white font-medium text-base">{activity.name}</div>
+                                <div className="text-right flex-shrink-0 ml-4">
+                                  <div className="text-gray-300 text-sm">{formatDurationWithUnits(durationToSeconds(interval.duration))}</div>
                                       </div>
-                                    </div>
-                                    <div className="text-right flex-shrink-0 ml-4">
-                                      <div className="text-gray-300 font-medium text-base">{formatDurationWithUnits(activity.value)}</div>
-                                      <div className="text-gray-400 text-sm">{percentage}%</div>
                                     </div>
                                   </div>
                                 )
@@ -645,15 +490,19 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
                           </ScrollArea>
                         </div>
 
-                        {/* Gráfico de tarta para el trayecto */}
-                        <div className="w-full lg:w-1/2" style={{ height: '350px' }}>
+                  {/* Gráfico de tarta */}
+                        <div className="w-full lg:w-1/2">
+                    {selectedIntervalsStats ? (
+                      <div className="w-full flex flex-col" style={{ height: `${listHeight}px` }}>
+                        {/* Gráfico */}
+                        <div className="w-full flex-shrink-0" style={{ height: '350px' }}>
                           <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                               <Pie
                                 data={pieChartData}
                                 cx="50%"
                                 cy="50%"
-                                outerRadius={100}
+                                outerRadius={120}
                                 fill="#8884d8"
                                 dataKey="value"
                               >
@@ -661,85 +510,64 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
                                   <Cell key={`cell-${index}`} fill={entry.color} />
                                 ))}
                               </Pie>
-                              <Tooltip content={<CustomTooltip />} />
                             </PieChart>
                           </ResponsiveContainer>
                         </div>
+
+                        {/* Leyenda debajo */}
+                        <div className="w-full mt-4 flex-1">
+                          {/* Total */}
+                          <div className="mb-3 pb-2 border-b" style={{ borderColor: '#4B5563' }}>
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-sm text-white">TOTAL</span>
+                              <span className="font-semibold text-sm text-white">
+                                {formatDurationWithUnits(selectedIntervalsStats.totalSeconds)}
+                              </span>
                       </div>
-                    </>
-                  )}
                 </div>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Vista de Actividades */}
-              <div className="w-full">
-                <div className="flex flex-col lg:flex-row gap-4">
-                  {/* Leyenda y estadísticas */}
-                  <div className="w-full lg:w-1/2">
-                    <ScrollArea className="h-[350px] w-full">
-                      <div className="grid grid-cols-1 gap-1 pr-4">
-                        {chartData.map((activity, index) => {
-                          const totalDuration = chartData.reduce((sum, item) => sum + item.value, 0)
+                          
+                          <div className="grid grid-cols-1 gap-2">
+                            {pieChartData.map((activity, index) => {
+                              const totalDuration = selectedIntervalsStats.totalSeconds
                           const percentage = ((activity.value / totalDuration) * 100).toFixed(1)
 
                           return (
-                            <div key={activity.id}
-                                 className="p-3 rounded-md flex items-center justify-between w-full"
-                                 style={{ backgroundColor: '#2C2C2C' }}>
-                              <div className="flex items-center gap-4 flex-1 min-w-0">
-                                <div
-                                  className="w-5 h-5 rounded-full flex-shrink-0"
+                                <div key={`${activity.activity}_${activity.port}_${index}`}
+                                     className="flex items-center justify-between w-full">
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <div
+                                      className="w-3 h-3 rounded-full flex-shrink-0"
                                   style={{ backgroundColor: activity.color }}
                                 ></div>
                                 <div className="flex-1 min-w-0">
-                                  <div className="text-white font-medium text-base">{activity.port}</div>
-                                  <div className="text-gray-400 text-sm">
-                                    {activity.type === 'docked' ? 'Atracado' :
-                                     activity.type === 'maneuvering' ? 'Maniobrando' :
-                                     activity.type === 'transit' ? 'Navegando' : 'Indefinido'}
-                                  </div>
+                                      <span className="font-medium text-sm" style={{ color: activity.color }}>
+                                        {activity.name}
+                                      </span>
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0 ml-4">
-                                <div className="text-gray-300 font-medium text-base">{formatDurationWithUnits(activity.value)}</div>
-                                <div className="text-gray-400 text-sm">{percentage}%</div>
+                                    <span className="font-medium text-sm" style={{ color: activity.color }}>
+                                      {formatDurationWithUnits(activity.value)}
+                                    </span>
+                                    <span className="text-gray-400 text-xs ml-2">{percentage}%</span>
                               </div>
                             </div>
                           )
                         })}
                       </div>
-                    </ScrollArea>
+                        </div>
+                              </div>
+          ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <div className="text-center text-gray-400">
+                          <p className="text-lg mb-2">Selecciona intervalos para ver las estadísticas</p>
+                          <p className="text-sm">Haz clic en los intervalos de la izquierda o usa los botones de arriba</p>
+                            </div>
                   </div>
-
-                  {/* Gráfico de quesos */}
-                  <div className="w-full lg:w-1/2" style={{ height: '350px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={entry.color}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
+                    )}
                   </div>
                 </div>
               </div>
-            </>
-          )}
         </CardContent>
       </Card>
   )

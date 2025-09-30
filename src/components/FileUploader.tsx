@@ -192,14 +192,22 @@ export function FileUploader({ files, onFilesChange, onAnalyze, isProcessing }: 
           )}
         </div>
 
-        <div className="flex justify-start pt-2">
-          <Button
+        <div className="flex justify-center pt-4">
+          <button
             onClick={onAnalyze}
             disabled={files.length === 0 || isProcessing}
-            className="bg-white hover:bg-gray-50 text-black font-medium py-3 px-8 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 shadow-sm"
+            className="px-8 py-3 text-base font-medium relative group disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+            style={{
+              backgroundColor: 'transparent',
+              borderColor: 'transparent',
+              color: files.length === 0 || isProcessing ? '#4B5563' : '#FFFFFF'
+            }}
           >
             {isProcessing ? "Procesando..." : "Procesar Datos"}
-          </Button>
+            {files.length > 0 && !isProcessing && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-200"></div>
+            )}
+          </button>
         </div>
       </CardContent>
     </Card>

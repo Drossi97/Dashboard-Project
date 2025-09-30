@@ -44,7 +44,15 @@ interface ChartDataPoint {
 }
 
 export function LineChart({ results }: LineChartProps) {
-  if (!results || !results.success || !results.data) return null
+  const [showHelp, setShowHelp] = React.useState(false)
+  const [visibleLines, setVisibleLines] = useState({
+    speed: true,
+    navStatus: true
+  })
+  const [zoomDomain, setZoomDomain] = useState<{startIndex: number, endIndex: number} | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState<{x: number, y: number} | null>(null)
+  const [hoveredData, setHoveredData] = useState<ChartDataPoint | null>(null)
 
   // Función de clasificación compartida con NavigationPieChart
   const classifyInterval = (
@@ -104,27 +112,11 @@ export function LineChart({ results }: LineChartProps) {
     };
   };
 
-  // Estado para controlar qué líneas están visibles
-  const [visibleLines, setVisibleLines] = useState({
-    speed: true,
-    navStatus: true
-  })
-
-  // Estado para controlar el zoom
-  const [zoomDomain, setZoomDomain] = useState<{startIndex: number, endIndex: number} | null>(null)
-
-  // Estado para el pan (arrastrar)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState<{x: number, y: number} | null>(null)
-
-  // Estado para el hover
-  const [hoveredData, setHoveredData] = useState<ChartDataPoint | null>(null)
-
   // Crear datos del gráfico (un punto por intervalo en el centro)
   const chartData = useMemo(() => {
     const data: ChartDataPoint[] = []
 
-    if (!results.data?.intervals || results.data.intervals.length === 0) {
+    if (!results || !results.data?.intervals || results.data.intervals.length === 0) {
       return data
     }
 
@@ -217,7 +209,7 @@ export function LineChart({ results }: LineChartProps) {
     })
 
     return data.sort((a, b) => a.timestamp - b.timestamp)
-  }, [results.data.intervals])
+  }, [results, results?.data?.intervals])
 
   // Filtrar datos según zoom
   const visibleData = useMemo(() => {
@@ -444,10 +436,40 @@ export function LineChart({ results }: LineChartProps) {
     return null
   }, [hoveredData])
 
+  // Early return después de todos los hooks
+  if (!results || !results.success || !results.data) return null
+
   return (
     <Card style={{ backgroundColor: '#171717', borderColor: '#2C2C2C' }}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-white text-lg font-semibold">Grafico de intervalos</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle className="text-white text-lg font-semibold">Grafico de intervalos</CardTitle>
+          <button
+            onClick={() => setShowHelp(!showHelp)}
+            className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold hover:bg-gray-700 transition-colors duration-200"
+            style={{
+              backgroundColor: 'transparent',
+              border: '1px solid #4B5563',
+              color: '#9CA3AF'
+            }}
+          >
+            ?
+          </button>
+        </div>
+        
+        {/* Cuadro de ayuda */}
+        {showHelp && (
+          <div className="mt-4 p-4 rounded-md text-sm" style={{ backgroundColor: '#2C2C2C', border: '1px solid #4B5563' }}>
+            <h4 className="text-white font-semibold mb-2">ℹ️ Cómo interpretar el gráfico</h4>
+            <ul className="text-gray-300 space-y-2 text-xs">
+              <li><strong className="text-blue-400">Línea azul (Velocidad):</strong> Muestra la velocidad del barco en nudos (knots)</li>
+              <li><strong className="text-green-400">Línea verde (Estado):</strong> Indica el estado de navegación (0.0 = Atracado, 1.0 = Maniobrando, 2.0 = Navegando)</li>
+              <li><strong className="text-white">Controles de zoom:</strong> Usa 🔍+ y 🔍- para acercar/alejar, ↻ para resetear la vista</li>
+              <li><strong className="text-white">Navegación:</strong> Arrastra el gráfico para moverte cuando estés en modo zoom</li>
+              <li><strong className="text-cyan-400">Leyenda interactiva:</strong> Pasa el mouse sobre el gráfico para ver los detalles de cada intervalo</li>
+            </ul>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <div className="flex flex-col lg:flex-row gap-6">
@@ -699,6 +721,28 @@ export function LineChart({ results }: LineChartProps) {
               <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
             </div>
             <div className="flex-1 flex flex-col justify-between pt-2 space-y-1">
+              {/* 0. Número de Intervalo */}
+              <div
+                className="pl-2 pr-2 pt-1 pb-2 rounded-md border h-16 flex flex-col"
+                style={{ backgroundColor: '#2C2C2C', borderColor: hoveredData && !hoveredData.isGap ? '#06B6D4' : '#2C2C2C' }}
+              >
+                <div className="text-xs text-gray-400 leading-tight">Intervalo</div>
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-lg font-bold text-cyan-400 text-center">
+                    {hoveredData && !hoveredData.isGap ? (() => {
+                      // Encontrar el índice del intervalo actual
+                      const intervalIndex = results.data?.intervals?.findIndex(interval => 
+                        interval.startDate === hoveredData.intervalStartDate &&
+                        interval.startTime === hoveredData.intervalStartTime &&
+                        interval.endDate === hoveredData.intervalEndDate &&
+                        interval.endTime === hoveredData.intervalEndTime
+                      );
+                      return intervalIndex !== undefined && intervalIndex !== -1 ? `#${intervalIndex + 1}` : '--';
+                    })() : '--'}
+                  </div>
+                </div>
+              </div>
+
               {/* 1. Estado (NavStatus) */}
               <div
                 className="pl-2 pr-2 pt-1 pb-2 rounded-md border h-16 flex flex-col"
@@ -715,17 +759,40 @@ export function LineChart({ results }: LineChartProps) {
               {/* 2. Actividad */}
               <div
                 className="pl-2 pr-2 pt-1 pb-2 rounded-md border h-16 flex flex-col"
-                style={{ backgroundColor: '#2C2C2C', borderColor: hoveredData && !hoveredData.isGap ? '#8B5CF6' : '#2C2C2C' }}
+                style={{ 
+                  backgroundColor: '#2C2C2C', 
+                  borderColor: hoveredData && !hoveredData.isGap && hoveredData?.classification
+                    ? hoveredData.classification.type === 'docked' 
+                      ? '#6B7280'
+                      : hoveredData.classification.type === 'maneuvering'
+                      ? '#F59E0B'
+                      : hoveredData.classification.type === 'transit'
+                      ? '#10B981'
+                      : '#EF4444'
+                    : '#2C2C2C'
+                }}
               >
                 <div className="text-xs text-gray-400 leading-tight">Actividad</div>
                 <div className="flex-1 flex items-center justify-center">
-                  <div className="text-sm font-bold text-purple-400 text-center">
+                  <div className="text-sm font-bold text-center"
+                       style={{
+                         color: hoveredData && !hoveredData.isGap && hoveredData?.classification
+                           ? hoveredData.classification.type === 'docked' 
+                             ? '#6B7280'
+                             : hoveredData.classification.type === 'maneuvering'
+                             ? '#F59E0B'
+                             : hoveredData.classification.type === 'transit'
+                             ? '#10B981'
+                             : '#EF4444'
+                           : '#8B5CF6'
+                       }}
+                  >
                     {hoveredData && !hoveredData.isGap && hoveredData?.classification ? (
                       <div>
                         <div className="text-xs text-center">
                           {hoveredData.classification.type === 'docked' && 'ATRACADO'}
                           {hoveredData.classification.type === 'maneuvering' && 'MANIOBRANDO'}
-                          {hoveredData.classification.type === 'transit' && 'TRÁNSITO'}
+                          {hoveredData.classification.type === 'transit' && 'NAVEGANDO'}
                           {hoveredData.classification.type === 'undefined' && 'Estado indefinido'}
                         </div>
                         {hoveredData.classification.atPort && (
