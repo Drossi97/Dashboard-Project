@@ -14,6 +14,8 @@ import { CSVAnalysisResult } from "../hooks/useCSVProcessor"
 
 interface LineChartProps {
   results: CSVAnalysisResult | null
+  onIntervalClick?: (intervalIndex: number) => void
+  selectedIntervals?: number[]
 }
 
 interface IntervalClassification {
@@ -43,7 +45,7 @@ interface ChartDataPoint {
   isEndPoint?: boolean
 }
 
-export function LineChart({ results }: LineChartProps) {
+export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: LineChartProps) {
   const [showHelp, setShowHelp] = React.useState(false)
   const [visibleLines, setVisibleLines] = useState({
     speed: true,
@@ -467,6 +469,7 @@ export function LineChart({ results }: LineChartProps) {
               <li><strong className="text-white">Controles de zoom:</strong> Usa 🔍+ y 🔍- para acercar/alejar, ↻ para resetear la vista</li>
               <li><strong className="text-white">Navegación:</strong> Arrastra el gráfico para moverte cuando estés en modo zoom</li>
               <li><strong className="text-cyan-400">Leyenda interactiva:</strong> Pasa el mouse sobre el gráfico para ver los detalles de cada intervalo</li>
+              <li><strong className="text-white">Clic derecho:</strong> Haz clic derecho en un intervalo para seleccionarlo/deseleccionarlo (los intervalos seleccionados aparecen resaltados en blanco)</li>
             </ul>
           </div>
         )}
@@ -558,7 +561,22 @@ export function LineChart({ results }: LineChartProps) {
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
-              onContextMenu={(e) => e.preventDefault()}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                if (!hoveredData || hoveredData.isGap || !onIntervalClick || !results?.data?.intervals) return
+                if (hoveredData.intervalStartDate && hoveredData.intervalStartTime) {
+                  // Buscar el índice del intervalo en el array original
+                  const intervalIndex = results.data.intervals.findIndex(interval => 
+                    interval.startDate === hoveredData.intervalStartDate &&
+                    interval.startTime === hoveredData.intervalStartTime &&
+                    interval.endDate === hoveredData.intervalEndDate &&
+                    interval.endTime === hoveredData.intervalEndTime
+                  )
+                  if (intervalIndex !== -1) {
+                    onIntervalClick(intervalIndex)
+                  }
+                }
+              }}
               style={{
                 cursor: isDragging ? 'grabbing' : (zoomDomain ? 'grab' : 'crosshair'),
                 userSelect: 'none'
@@ -706,6 +724,40 @@ export function LineChart({ results }: LineChartProps) {
                       x2={area.x2}
                       fill={area.fill}
                       fillOpacity={area.fillOpacity}
+                    />
+                  ))
+                })()}
+
+                {/* Resaltar intervalos seleccionados */}
+                {(() => {
+                  if (!results?.data?.intervals || selectedIntervals.length === 0) return null
+                  
+                  const selectedAreas: any[] = []
+                  selectedIntervals.forEach(intervalIndex => {
+                    const interval = results.data?.intervals?.[intervalIndex]
+                    if (!interval) return
+                    
+                    const startTimestamp = new Date(`${interval.startDate} ${interval.startTime}`).getTime()
+                    const endTimestamp = new Date(`${interval.endDate} ${interval.endTime}`).getTime()
+                    
+                    selectedAreas.push({
+                      x1: startTimestamp,
+                      x2: endTimestamp,
+                      intervalIndex
+                    })
+                  })
+                  
+                  return selectedAreas.map((area) => (
+                    <ReferenceArea
+                      key={`selected-${area.intervalIndex}`}
+                      xAxisId="times"
+                      x1={area.x1}
+                      x2={area.x2}
+                      fill="rgba(255, 255, 255, 0.2)"
+                      fillOpacity={0.5}
+                      stroke="#FFFFFF"
+                      strokeWidth={2}
+                      strokeOpacity={0.8}
                     />
                   ))
                 })()}

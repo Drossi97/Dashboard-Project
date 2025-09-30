@@ -8,6 +8,8 @@ import { CSVAnalysisResult } from "../hooks/useCSVProcessor"
 
 interface NavigationAnalysisProps {
   results: CSVAnalysisResult | null
+  selectedIntervals: number[]
+  setSelectedIntervals: React.Dispatch<React.SetStateAction<number[]>>
 }
 
 // Colores para cada tipo de actividad portuaria
@@ -27,8 +29,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
   "undefined": "#EF4444", // Rojo para intervalos indefinidos
 }
 
-export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
-  const [selectedIntervals, setSelectedIntervals] = useState<number[]>([]) // Índices de intervalos seleccionados
+export function NavigationAnalysis({ results, selectedIntervals, setSelectedIntervals }: NavigationAnalysisProps) {
   const [showHelp, setShowHelp] = useState<boolean>(false)
 
   // Función de clasificación de intervalos (igual que LineChart.tsx)
@@ -319,7 +320,7 @@ export function NavigationAnalysis({ results }: NavigationAnalysisProps) {
   }
 
   return (
-    <Card style={{ backgroundColor: '#171717', borderColor: '#2C2C2C' }}>
+    <Card style={{ backgroundColor: '#171717', borderColor: '#2C2C2C' }} data-component="navigation-analysis">
          <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
             <CardTitle className="text-white text-lg font-semibold">
