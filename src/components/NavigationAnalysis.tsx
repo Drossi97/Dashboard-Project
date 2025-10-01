@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
+import { ScrollArea } from "./ui/scroll-area"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
 import { CSVAnalysisResult } from "../hooks/useCSVProcessor"
 
@@ -26,8 +27,22 @@ const ACTIVITY_COLORS: Record<string, string> = {
   "undefined": "#EF4444", // Rojo para intervalos indefinidos
 }
 
+interface Journey {
+  journeyIndex: number
+  startPort: string
+  endPort: string
+  startDate: string
+  startTime: string
+  endDate: string
+  endTime: string
+  intervalIndices: number[]
+  totalDuration: number
+}
+
 export function NavigationAnalysis({ results, selectedIntervals, setSelectedIntervals }: NavigationAnalysisProps) {
   const [showHelp, setShowHelp] = useState<boolean>(false)
+  const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const [selectedJourneys, setSelectedJourneys] = useState<number[]>([])
 
   // Función de clasificación de intervalos (igual que LineChart.tsx)
   const classifyInterval = useCallback((
@@ -130,26 +145,157 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
 
   const selectAllIntervals = useCallback(() => {
     if (!results?.data?.intervals) return
-    setSelectedIntervals(results.data.intervals.map((_, index) => index))
-  }, [results, setSelectedIntervals])
+    
+    // Si ya está activo, desactivar (limpiar)
+    if (activeFilter === 'all') {
+      setSelectedIntervals([])
+      setActiveFilter(null)
+      setSelectedJourneys([])
+    } else {
+      // Si no está activo, activar
+      setSelectedIntervals(results.data.intervals.map((_, index) => index))
+      setActiveFilter('all')
+      setSelectedJourneys([])
+    }
+  }, [results, setSelectedIntervals, activeFilter])
 
   const clearSelection = useCallback(() => {
     setSelectedIntervals([])
+    setActiveFilter(null)
+    setSelectedJourneys([])
   }, [setSelectedIntervals])
 
-  // Seleccionar por tipo de actividad
+  // Seleccionar por tipo de actividad (toggle)
   const selectByType = useCallback((type: 'docked' | 'maneuvering' | 'transit' | 'undefined') => {
     if (!results?.data?.intervals) return
     
-    const indices = results.data.intervals
-      .map((interval, index) => {
-        const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
-        return classification.type === type ? index : -1
-      })
-      .filter(index => index !== -1)
+    // Si ya está activo, desactivar (limpiar)
+    if (activeFilter === type) {
+      setSelectedIntervals([])
+      setActiveFilter(null)
+      setSelectedJourneys([])
+    } else {
+      // Si no está activo, activar
+      const indices = results.data.intervals
+        .map((interval, index) => {
+          const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
+          return classification.type === type ? index : -1
+        })
+        .filter(index => index !== -1)
+      
+      setSelectedIntervals(indices)
+      setActiveFilter(type)
+      setSelectedJourneys([])
+    }
+  }, [results, classifyInterval, setSelectedIntervals, activeFilter])
+
+
+  // Función auxiliar para formatear fecha corta
+  const formatDateShort = useCallback((dateString: string): string => {
+    const parts = dateString.split('-')
+    if (parts.length !== 3) return dateString
+    const [year, month, day] = parts
+    return `${day}/${month}`
+  }, [])
+
+  // Función auxiliar para formatear hora corta (sin segundos)
+  const formatTimeShort = useCallback((timeString: string): string => {
+    const parts = timeString.split(':')
+    if (parts.length !== 3) return timeString
+    return `${parts[0]}:${parts[1]}`
+  }, [])
+
+  // Detectar trayectos completos
+  const journeys = useMemo(() => {
+    if (!results?.data?.intervals) return []
     
-    setSelectedIntervals(indices)
-  }, [results, classifyInterval, setSelectedIntervals])
+    const detectedJourneys: Journey[] = []
+    const intervals = results.data.intervals
+    let currentJourneyIntervals: number[] = []
+    let journeyStartPort: string | null = null
+    
+    intervals.forEach((interval, index) => {
+      const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
+      
+      // Si es el primer intervalo atracado, inicia un trayecto
+      if (classification.type === 'docked' && currentJourneyIntervals.length === 0) {
+        journeyStartPort = classification.atPort || ''
+        currentJourneyIntervals.push(index)
+      }
+      // Si hay un trayecto en curso
+      else if (currentJourneyIntervals.length > 0) {
+        // Si llegamos a otro intervalo atracado en un puerto diferente, completamos el trayecto
+        if (classification.type === 'docked' && classification.atPort !== journeyStartPort) {
+          // NO incluir este intervalo en el trayecto actual
+          const firstInterval = intervals[currentJourneyIntervals[0]]
+          const lastInterval = intervals[currentJourneyIntervals[currentJourneyIntervals.length - 1]]
+
+      let totalSeconds = 0
+          currentJourneyIntervals.forEach(idx => {
+            totalSeconds += durationToSeconds(intervals[idx].duration)
+          })
+          
+          detectedJourneys.push({
+            journeyIndex: detectedJourneys.length,
+            startPort: journeyStartPort || '',
+            endPort: classification.atPort || '',
+            startDate: firstInterval.startDate,
+            startTime: firstInterval.startTime,
+            endDate: lastInterval.endDate,
+            endTime: lastInterval.endTime,
+            intervalIndices: [...currentJourneyIntervals],
+            totalDuration: totalSeconds
+          })
+          
+          // Iniciar nuevo trayecto desde este puerto (este intervalo SÍ se incluye en el nuevo trayecto)
+          journeyStartPort = classification.atPort || ''
+          currentJourneyIntervals = [index]
+        } else {
+          // Si no es atracado en otro puerto, agregar al trayecto actual
+          currentJourneyIntervals.push(index)
+        }
+      }
+    })
+    
+    // Ordenar trayectos por fecha y hora de inicio
+    return detectedJourneys.sort((a, b) => {
+      const dateA = new Date(`${a.startDate} ${a.startTime}`).getTime()
+      const dateB = new Date(`${b.startDate} ${b.startTime}`).getTime()
+      return dateA - dateB
+    })
+  }, [results?.data?.intervals, classifyInterval, durationToSeconds])
+
+  // Seleccionar/deseleccionar trayecto (permite múltiple selección)
+  const selectJourney = useCallback((journeyIndex: number) => {
+    const journey = journeys[journeyIndex]
+    if (!journey) return
+    
+    setSelectedJourneys(prev => {
+      let newSelectedJourneys: number[]
+      
+      if (prev.includes(journeyIndex)) {
+        // Si ya está seleccionado, lo deseleccionamos
+        newSelectedJourneys = prev.filter(idx => idx !== journeyIndex)
+      } else {
+        // Si no está seleccionado, lo agregamos
+        newSelectedJourneys = [...prev, journeyIndex].sort((a, b) => a - b)
+      }
+      
+      // Combinar todos los intervalos de los trayectos seleccionados
+      const allIntervalIndices = new Set<number>()
+      newSelectedJourneys.forEach(jIdx => {
+        const j = journeys[jIdx]
+        if (j) {
+          j.intervalIndices.forEach(intervalIdx => allIntervalIndices.add(intervalIdx))
+        }
+      })
+      
+      setSelectedIntervals(Array.from(allIntervalIndices).sort((a, b) => a - b))
+      setActiveFilter(null)
+      
+      return newSelectedJourneys
+    })
+  }, [journeys, setSelectedIntervals])
 
   // Calcular estadísticas de intervalos seleccionados
   const selectedIntervalsStats = useMemo(() => {
@@ -257,29 +403,30 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     <Card style={{ backgroundColor: '#171717', borderColor: '#2C2C2C' }} data-component="navigation-analysis">
          <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-white text-lg font-semibold">
+               <CardTitle className="text-white text-lg font-semibold">
               Análisis de navegación por intervalos
-            </CardTitle>
+               </CardTitle>
             <button
               onClick={() => setShowHelp(!showHelp)}
               className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold hover:bg-gray-700 transition-colors duration-200"
-              style={{
-                backgroundColor: 'transparent',
+                  style={{
+                    backgroundColor: 'transparent',
                 border: '1px solid #4B5563',
                 color: '#9CA3AF'
               }}
             >
               ?
             </button>
-          </div>
+               </div>
 
           {/* Cuadro de ayuda */}
           {showHelp && (
             <div className="mt-4 p-4 rounded-md text-sm" style={{ backgroundColor: '#2C2C2C', border: '1px solid #4B5563' }}>
               <h4 className="text-white font-semibold mb-2">ℹ️ Cómo usar el análisis por intervalos</h4>
               <ul className="text-gray-300 space-y-2 text-xs">
+                <li><strong className="text-cyan-400">Trayectos (izquierda):</strong> Un trayecto es el viaje completo desde que el barco está atracado en un puerto hasta que está atracado en otro puerto. Haz clic en uno o varios trayectos para seleccionar sus intervalos (se pueden seleccionar múltiples)</li>
                 <li><strong className="text-white">Selección desde el gráfico:</strong> Haz clic derecho en los intervalos del gráfico de líneas para seleccionarlos/deseleccionarlos individualmente</li>
-                <li><strong className="text-white">Botones de selección rápida:</strong> Usa los botones superiores para seleccionar todos los intervalos de un tipo específico</li>
+                <li><strong className="text-white">Botones de la derecha:</strong> Usa los botones de la columna derecha para filtrar rápidamente intervalos por tipo de actividad</li>
                 <li><strong className="text-white">Diagrama de tarta:</strong> Visualiza las proporciones de tiempo de cada actividad en los intervalos seleccionados</li>
                 <li><strong className="text-gray-400">Atracado:</strong> El barco está detenido en un puerto</li>
                 <li><strong className="text-orange-400">Maniobrando:</strong> El barco está maniobrando cerca de un puerto</li>
@@ -290,162 +437,233 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
           )}
         </CardHeader>
         <CardContent>
-          <div className="w-full">
-            {/* Botones de selección rápida */}
-            <div className="mb-6">
-              <div className="flex gap-2 flex-wrap justify-center items-center">
+          <div className="flex gap-6">
+            {/* Columna izquierda: Lista de trayectos */}
+            <div className="w-72 flex-shrink-0">
+              <h3 className="text-white font-semibold text-sm mb-3">Trayectos detectados ({journeys.length})</h3>
+              <ScrollArea style={{ height: '600px' }}>
+                <div className="flex flex-col gap-2 pr-3">
+                  {journeys.map((journey) => {
+                    const isSelected = selectedJourneys.includes(journey.journeyIndex)
+                    
+                    return (
+                      <button
+                        key={journey.journeyIndex}
+                        onClick={() => selectJourney(journey.journeyIndex)}
+                        className="px-4 py-3 text-left rounded-lg transition-all hover:bg-gray-700"
+                        style={{
+                          backgroundColor: isSelected ? '#374151' : '#2C2C2C',
+                          border: 'none'
+                        }}
+                      >
+                        <div className="flex flex-col gap-1">
+                          <div className="text-sm font-semibold" style={{ color: isSelected ? '#6EE7B7' : '#10B981' }}>
+                            {journey.startPort} → {journey.endPort}
+                          </div>
+                        <div className="text-xs text-gray-400">
+                          {formatDateShort(journey.startDate)}
+                  </div>
+                        <div className="text-xs text-gray-400">
+                          {formatTimeShort(journey.startTime)} - {formatTimeShort(journey.endTime)}
+                            </div>
+                        <div className="text-xs text-gray-300">
+                          Duración: {formatDurationWithUnits(journey.totalDuration)}
+                          </div>
+                        <div className="text-xs text-gray-500">
+                          {journey.intervalIndices.length} intervalos
+                        </div>
+                      </div>
+                    </button>
+                    )
+                  })}
+                  {journeys.length === 0 && (
+                    <div className="text-center text-gray-400 py-8 text-sm">
+                      No se detectaron trayectos completos
+                        </div>
+                  )}
+                            </div>
+                          </ScrollArea>
+                        </div>
+
+            {/* Columna centro: Gráfico de tarta */}
+            <div className="flex-1 min-w-0">
+              <div className="w-full flex flex-col">
+                {/* Gráfico */}
+                <div className="w-full flex-shrink-0" style={{ height: '350px' }}>
+                  {selectedIntervalsStats ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pieChartData}
+                                cx="50%"
+                                cy="50%"
+                          outerRadius={120}
+                                fill="#8884d8"
+                                dataKey="value"
+                              >
+                                {pieChartData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Pie>
+                            </PieChart>
+                          </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center text-gray-400">
+                        <p className="text-lg mb-2">Selecciona <span className="text-white font-semibold">intervalos</span></p>
+                        <p className="text-xs"><span className="text-white font-semibold">Clic derecho</span> en el gráfico o usa los filtros</p>
+                        </div>
+                      </div>
+                  )}
+                </div>
+
+                {/* Leyenda debajo */}
+                <div className="w-full mt-4" style={{ minHeight: '200px' }}>
+                  {selectedIntervalsStats ? (
+                    <>
+                      {/* Total */}
+                      <div className="mb-3 pb-2 border-b" style={{ borderColor: '#4B5563' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-base text-white">TOTAL</span>
+                          <span className="font-semibold text-base text-white">
+                            {formatDurationWithUnits(selectedIntervalsStats.totalSeconds)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-2">
+                              {pieChartData.map((activity, index) => {
+                          const totalDuration = selectedIntervalsStats.totalSeconds
+                          const percentage = ((activity.value / totalDuration) * 100).toFixed(1)
+
+                          return (
+                                  <div key={`${activity.activity}_${activity.port}_${index}`}
+                                 className="flex items-center justify-between w-full">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <div
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: activity.color }}
+                                ></div>
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-medium text-sm" style={{ color: activity.color }}>
+                                    {activity.name}
+                                  </span>
+                                  </div>
+                                </div>
+                              <div className="text-right flex-shrink-0 ml-2">
+                                <span className="font-medium text-sm" style={{ color: activity.color }}>
+                                  {formatDurationWithUnits(activity.value)}
+                                </span>
+                                <span className="text-gray-400 text-xs ml-2">{percentage}%</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center text-gray-400">
+                        <p className="text-xs">Los resultados aparecerán aquí</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+                  </div>
+
+            {/* Columna derecha: Botones de selección */}
+            <div className="w-56 flex-shrink-0">
+              <h3 className="text-white font-semibold text-sm mb-3">Filtros rápidos</h3>
+              <div className="flex flex-col gap-2.5">
+                {/* Botón: Seleccionar todos */}
                 <button
                   onClick={selectAllIntervals}
-                  className="px-3 py-1 text-sm relative group"
+                  className="px-4 py-3 text-sm text-left rounded-lg transition-all hover:bg-gray-700"
                   style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
-                    color: '#9CA3AF'
+                    backgroundColor: activeFilter === 'all' ? '#374151' : '#2C2C2C',
+                    border: 'none',
+                    color: activeFilter === 'all' ? '#FFFFFF' : '#9CA3AF',
+                    fontWeight: activeFilter === 'all' ? '600' : '400'
                   }}
                 >
                   Seleccionar todos
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
                 </button>
+                
+                {/* Botón: Solo Atracados */}
                 <button
                   onClick={() => selectByType('docked')}
-                  className="px-3 py-1 text-sm relative group"
+                  className="px-4 py-3 text-sm text-left rounded-lg transition-all hover:bg-gray-700"
                   style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
-                    color: '#6B7280'
+                    backgroundColor: activeFilter === 'docked' ? '#374151' : '#2C2C2C',
+                    border: 'none',
+                    color: activeFilter === 'docked' ? '#9CA3AF' : '#6B7280',
+                    fontWeight: activeFilter === 'docked' ? '600' : '400'
                   }}
                 >
                   Solo Atracados
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-gray-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
                 </button>
+                
+                {/* Botón: Solo Maniobrando */}
                 <button
                   onClick={() => selectByType('maneuvering')}
-                  className="px-3 py-1 text-sm relative group"
+                  className="px-4 py-3 text-sm text-left rounded-lg transition-all hover:bg-gray-700"
                   style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
-                    color: '#F59E0B'
+                    backgroundColor: activeFilter === 'maneuvering' ? '#374151' : '#2C2C2C',
+                    border: 'none',
+                    color: activeFilter === 'maneuvering' ? '#FCD34D' : '#F59E0B',
+                    fontWeight: activeFilter === 'maneuvering' ? '600' : '400'
                   }}
                 >
                   Solo Maniobrando
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-orange-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
                 </button>
+                
+                {/* Botón: Solo Navegando */}
                 <button
                   onClick={() => selectByType('transit')}
-                  className="px-3 py-1 text-sm relative group"
+                  className="px-4 py-3 text-sm text-left rounded-lg transition-all hover:bg-gray-700"
                   style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
-                    color: '#10B981'
+                    backgroundColor: activeFilter === 'transit' ? '#374151' : '#2C2C2C',
+                    border: 'none',
+                    color: activeFilter === 'transit' ? '#6EE7B7' : '#10B981',
+                    fontWeight: activeFilter === 'transit' ? '600' : '400'
                   }}
                 >
                   Solo Navegando
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
                 </button>
+                
+                {/* Botón: Solo Indefinidos */}
                 <button
                   onClick={() => selectByType('undefined')}
-                  className="px-3 py-1 text-sm relative group"
+                  className="px-4 py-3 text-sm text-left rounded-lg transition-all hover:bg-gray-700"
                   style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
-                    color: '#EF4444'
+                    backgroundColor: activeFilter === 'undefined' ? '#374151' : '#2C2C2C',
+                    border: 'none',
+                    color: activeFilter === 'undefined' ? '#FCA5A5' : '#EF4444',
+                    fontWeight: activeFilter === 'undefined' ? '600' : '400'
                   }}
                 >
                   Solo Indefinidos
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-red-500 to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
                 </button>
+
+                {/* Separador */}
+                <div className="my-2 h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
+
+                {/* Botón: Limpiar */}
                 <button
                   onClick={clearSelection}
-                  className="px-3 py-1 text-sm relative group"
+                  className="px-4 py-3 text-sm text-left rounded-lg transition-all hover:bg-gray-700"
                   style={{
-                    backgroundColor: 'transparent',
-                    borderColor: 'transparent',
+                    backgroundColor: '#2C2C2C',
+                    border: 'none',
                     color: '#9CA3AF'
                   }}
                 >
-                  Limpiar
-                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
+                  🗑️ Limpiar
                 </button>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Gráfico de tarta centrado */}
-            <div className="w-full flex justify-center">
-              {selectedIntervalsStats ? (
-                <div className="w-full max-w-3xl flex flex-col">
-                  {/* Gráfico */}
-                  <div className="w-full flex-shrink-0" style={{ height: '400px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={pieChartData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={140}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {pieChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-
-                  {/* Leyenda debajo */}
-                  <div className="w-full mt-6">
-                    {/* Total */}
-                    <div className="mb-4 pb-3 border-b" style={{ borderColor: '#4B5563' }}>
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-lg text-white">TOTAL</span>
-                        <span className="font-semibold text-lg text-white">
-                          {formatDurationWithUnits(selectedIntervalsStats.totalSeconds)}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 gap-3">
-                      {pieChartData.map((activity, index) => {
-                        const totalDuration = selectedIntervalsStats.totalSeconds
-                        const percentage = ((activity.value / totalDuration) * 100).toFixed(1)
-
-                        return (
-                          <div key={`${activity.activity}_${activity.port}_${index}`}
-                               className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div
-                                className="w-4 h-4 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: activity.color }}
-                              ></div>
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium text-base" style={{ color: activity.color }}>
-                                  {activity.name}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="text-right flex-shrink-0 ml-4">
-                              <span className="font-medium text-base" style={{ color: activity.color }}>
-                                {formatDurationWithUnits(activity.value)}
-                              </span>
-                              <span className="text-gray-400 text-sm ml-2">{percentage}%</span>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center py-20">
-                  <div className="text-center text-gray-400">
-                    <p className="text-xl mb-2">Selecciona intervalos para ver las estadísticas</p>
-                    <p className="text-sm">Haz clic derecho en los intervalos del gráfico de líneas para seleccionarlos</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
         </CardContent>
       </Card>
   )

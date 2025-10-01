@@ -438,6 +438,20 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
     return null
   }, [hoveredData])
 
+  // Verificar si el intervalo actual está seleccionado
+  const isCurrentIntervalSelected = useMemo(() => {
+    if (!hoveredData || hoveredData.isGap || !results?.data?.intervals) return false
+    
+    const intervalIndex = results.data.intervals.findIndex(interval => 
+      interval.startDate === hoveredData.intervalStartDate &&
+      interval.startTime === hoveredData.intervalStartTime &&
+      interval.endDate === hoveredData.intervalEndDate &&
+      interval.endTime === hoveredData.intervalEndTime
+    )
+    
+    return intervalIndex !== -1 && selectedIntervals.includes(intervalIndex)
+  }, [hoveredData, results?.data?.intervals, selectedIntervals])
+
   // Early return después de todos los hooks
   if (!results || !results.success || !results.data) return null
 
@@ -445,7 +459,7 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
     <Card style={{ backgroundColor: '#171717', borderColor: '#2C2C2C' }}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <CardTitle className="text-white text-lg font-semibold">Grafico de intervalos</CardTitle>
+        <CardTitle className="text-white text-lg font-semibold">Grafico de intervalos</CardTitle>
           <button
             onClick={() => setShowHelp(!showHelp)}
             className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold hover:bg-gray-700 transition-colors duration-200"
@@ -469,7 +483,8 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
               <li><strong className="text-white">Controles de zoom:</strong> Usa 🔍+ y 🔍- para acercar/alejar, ↻ para resetear la vista</li>
               <li><strong className="text-white">Navegación:</strong> Arrastra el gráfico para moverte cuando estés en modo zoom</li>
               <li><strong className="text-cyan-400">Leyenda interactiva:</strong> Pasa el mouse sobre el gráfico para ver los detalles de cada intervalo</li>
-              <li><strong className="text-white">Clic derecho:</strong> Haz clic derecho en un intervalo para seleccionarlo/deseleccionarlo (los intervalos seleccionados aparecen resaltados en blanco)</li>
+              <li><strong className="text-white">Clic derecho:</strong> Haz clic derecho en un intervalo para seleccionarlo/deseleccionarlo</li>
+              <li><strong className="text-green-400">Intervalo seleccionado:</strong> La leyenda mostrará un indicador "✓ SELECCIONADO" cuando pases el mouse sobre un intervalo ya seleccionado</li>
             </ul>
           </div>
         )}
@@ -728,39 +743,6 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
                   ))
                 })()}
 
-                {/* Resaltar intervalos seleccionados */}
-                {(() => {
-                  if (!results?.data?.intervals || selectedIntervals.length === 0) return null
-                  
-                  const selectedAreas: any[] = []
-                  selectedIntervals.forEach(intervalIndex => {
-                    const interval = results.data?.intervals?.[intervalIndex]
-                    if (!interval) return
-                    
-                    const startTimestamp = new Date(`${interval.startDate} ${interval.startTime}`).getTime()
-                    const endTimestamp = new Date(`${interval.endDate} ${interval.endTime}`).getTime()
-                    
-                    selectedAreas.push({
-                      x1: startTimestamp,
-                      x2: endTimestamp,
-                      intervalIndex
-                    })
-                  })
-                  
-                  return selectedAreas.map((area) => (
-                    <ReferenceArea
-                      key={`selected-${area.intervalIndex}`}
-                      xAxisId="times"
-                      x1={area.x1}
-                      x2={area.x2}
-                      fill="rgba(255, 255, 255, 0.2)"
-                      fillOpacity={0.5}
-                      stroke="#FFFFFF"
-                      strokeWidth={2}
-                      strokeOpacity={0.8}
-                    />
-                  ))
-                })()}
                 </RechartsLineChart>
               </ResponsiveContainer>
             </div>
@@ -772,6 +754,14 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
               <h3 className="text-lg font-bold text-white mb-2">Leyenda</h3>
               <div className="w-full h-px bg-gradient-to-r from-transparent via-gray-600 to-transparent"></div>
             </div>
+            
+            {/* Indicador de selección */}
+            {isCurrentIntervalSelected && (
+              <div className="mb-2 px-2 py-2 rounded-md text-center animate-pulse" style={{ backgroundColor: '#065F46', border: '2px solid #10B981' }}>
+                <div className="text-xs font-bold text-white">✓ SELECCIONADO</div>
+              </div>
+            )}
+            
             <div className="flex-1 flex flex-col justify-between pt-2 space-y-1">
               {/* 1. Estado (NavStatus) */}
               <div
