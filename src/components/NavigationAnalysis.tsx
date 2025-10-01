@@ -37,6 +37,7 @@ interface Journey {
   endTime: string
   intervalIndices: number[]
   totalDuration: number
+  isIncomplete?: boolean
 }
 
 export function NavigationAnalysis({ results, selectedIntervals, setSelectedIntervals }: NavigationAnalysisProps) {
@@ -44,62 +45,60 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [selectedJourneys, setSelectedJourneys] = useState<number[]>([])
 
-  // Función de clasificación de intervalos (igual que LineChart.tsx)
-  const classifyInterval = useCallback((
-    navStatus: string,
-    startPort: any | undefined,
-    endPort: any | undefined
-  ) => {
-    // If no port data available
-    if (!startPort || !endPort) {
-      return {
-        type: "undefined" as const,
-        description: "undefined - no port data available"
-      };
+  // Función auxiliar para extraer información del classificationType
+  const parseClassificationType = useCallback((classificationType?: string) => {
+    if (!classificationType) {
+      return { type: 'undefined' as const, port: null, fromPort: null, toPort: null }
     }
 
-    const samePort = startPort.name === endPort.name;
-    const startDistanceDocked = startPort.distance < 4; // 4 km para atracado
-    const endDistanceDocked = endPort.distance < 4;
-    const startDistanceManeuvering = startPort.distance < 10; // 10 km para maniobrando
-    const endDistanceManeuvering = endPort.distance < 10;
-    const maxDistanceFromAnyPort = Math.max(startPort.distance, endPort.distance) > 40; // > 40 km = indefinido
-
-    // Rule 1: Docked (atracado) - requiere estar a < 4 km del puerto
-    if (navStatus === "0.0" && samePort && startDistanceDocked && endDistanceDocked) {
-      return {
-        type: "docked" as const,
-        description: `docked at ${startPort.name}`,
-        atPort: startPort.name
-      };
+    if (classificationType.startsWith('atracado - ')) {
+      return { 
+        type: 'docked' as const, 
+        port: classificationType.replace('atracado - ', ''),
+        fromPort: null,
+        toPort: null
+      }
     }
 
-    // Rule 2: Maneuvering (maniobrando) - requiere estar a < 10 km del puerto
-    if (navStatus === "1.0" && samePort && startDistanceManeuvering && endDistanceManeuvering) {
-      return {
-        type: "maneuvering" as const,
-        description: `maneuvering at ${startPort.name}`,
-        atPort: startPort.name
-      };
+    if (classificationType.startsWith('maniobrando - ')) {
+      return { 
+        type: 'maneuvering' as const, 
+        port: classificationType.replace('maniobrando - ', ''),
+        fromPort: null,
+        toPort: null
+      }
     }
 
-    // Rule 3: Transit (navegando)
-    if (navStatus === "2.0" && !samePort) {
-      return {
-        type: "transit" as const,
-        description: `navegando from ${startPort.name} to ${endPort.name}`,
-        fromPort: startPort.name,
-        toPort: endPort.name
-      };
+    if (classificationType.startsWith('navegando - ')) {
+      const rest = classificationType.replace('navegando - ', '')
+      if (rest.includes(' → ')) {
+        const [from, to] = rest.split(' → ')
+        return {
+          type: 'transit' as const,
+          port: null,
+          fromPort: from,
+          toPort: to
+        }
+      } else if (rest.startsWith('cerca de ')) {
+        const port = rest.replace('cerca de ', '')
+        return {
+          type: 'transit' as const,
+          port: port,
+          fromPort: null,
+          toPort: null
+        }
+      } else {
+        // Caso de navegación sin especificar ruta (trayecto incompleto)
+        return {
+          type: 'transit' as const,
+          port: null,
+          fromPort: null,
+          toPort: null
+        }
+      }
     }
 
-    // Rule 4: Undefined (indefinido) - incluye casos donde el barco está > 40 km del puerto más cercano
-    return {
-      type: "undefined" as const,
-      description: maxDistanceFromAnyPort
-        ? "Estado indefinido - demasiado lejos de puertos (> 40 km)"
-        : "Estado indefinido - condiciones no cumplidas"
-    };
+    return { type: 'undefined' as const, port: null, fromPort: null, toPort: null }
   }, []);
 
   // Funciones utilitarias
@@ -178,8 +177,8 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
       // Si no está activo, activar
       const indices = results.data.intervals
         .map((interval, index) => {
-          const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
-          return classification.type === type ? index : -1
+          const parsed = parseClassificationType(interval.classificationType)
+          return parsed.type === type ? index : -1
         })
         .filter(index => index !== -1)
       
@@ -187,7 +186,7 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
       setActiveFilter(type)
       setSelectedJourneys([])
     }
-  }, [results, classifyInterval, setSelectedIntervals, activeFilter])
+  }, [results, parseClassificationType, setSelectedIntervals, activeFilter])
 
 
   // Función auxiliar para formatear fecha corta
@@ -205,65 +204,83 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     return `${parts[0]}:${parts[1]}`
   }, [])
 
-  // Detectar trayectos completos
+  // Obtener trayectos desde el JSON (solo los que tienen journeyIndex asignado)
   const journeys = useMemo(() => {
     if (!results?.data?.intervals) return []
-    
-    const detectedJourneys: Journey[] = []
-    const intervals = results.data.intervals
-    let currentJourneyIntervals: number[] = []
-    let journeyStartPort: string | null = null
-    
-    intervals.forEach((interval, index) => {
-      const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
-      
-      // Si es el primer intervalo atracado, inicia un trayecto
-      if (classification.type === 'docked' && currentJourneyIntervals.length === 0) {
-        journeyStartPort = classification.atPort || ''
-        currentJourneyIntervals.push(index)
-      }
-      // Si hay un trayecto en curso
-      else if (currentJourneyIntervals.length > 0) {
-        // Si llegamos a otro intervalo atracado en un puerto diferente, completamos el trayecto
-        if (classification.type === 'docked' && classification.atPort !== journeyStartPort) {
-          // NO incluir este intervalo en el trayecto actual
-          const firstInterval = intervals[currentJourneyIntervals[0]]
-          const lastInterval = intervals[currentJourneyIntervals[currentJourneyIntervals.length - 1]]
 
-      let totalSeconds = 0
-          currentJourneyIntervals.forEach(idx => {
-            totalSeconds += durationToSeconds(intervals[idx].duration)
-          })
-          
-          detectedJourneys.push({
-            journeyIndex: detectedJourneys.length,
-            startPort: journeyStartPort || '',
-            endPort: classification.atPort || '',
-            startDate: firstInterval.startDate,
-            startTime: firstInterval.startTime,
-            endDate: lastInterval.endDate,
-            endTime: lastInterval.endTime,
-            intervalIndices: [...currentJourneyIntervals],
-            totalDuration: totalSeconds
-          })
-          
-          // Iniciar nuevo trayecto desde este puerto (este intervalo SÍ se incluye en el nuevo trayecto)
-          journeyStartPort = classification.atPort || ''
-          currentJourneyIntervals = [index]
-        } else {
-          // Si no es atracado en otro puerto, agregar al trayecto actual
-          currentJourneyIntervals.push(index)
+    // Crear un mapa para agrupar intervalos por journeyIndex
+    const journeyMap = new Map<number, {
+      intervalIndices: number[]
+      intervals: any[]
+    }>()
+
+    // Solo procesar intervalos que tienen journeyIndex asignado
+    results.data.intervals.forEach((interval, index) => {
+      const jIndex = interval.journeyIndex
+      // Solo incluir intervalos que efectivamente tienen un journeyIndex válido
+      if (jIndex !== null && jIndex !== undefined && jIndex >= 0) {
+        if (!journeyMap.has(jIndex)) {
+          journeyMap.set(jIndex, { intervalIndices: [], intervals: [] })
         }
+        journeyMap.get(jIndex)!.intervalIndices.push(index)
+        journeyMap.get(jIndex)!.intervals.push(interval)
       }
     })
-    
-    // Ordenar trayectos por fecha y hora de inicio
-    return detectedJourneys.sort((a, b) => {
-      const dateA = new Date(`${a.startDate} ${a.startTime}`).getTime()
-      const dateB = new Date(`${b.startDate} ${b.startTime}`).getTime()
-      return dateA - dateB
-    })
-  }, [results?.data?.intervals, classifyInterval, durationToSeconds])
+
+    // Convertir a array de Journey ordenados por journeyIndex
+    return Array.from(journeyMap.entries())
+      .sort((a, b) => a[0] - b[0]) // Ordenar por journeyIndex
+      .map(([jIndex, data]) => {
+        const firstInterval = data.intervals[0]
+        const lastInterval = data.intervals[data.intervals.length - 1]
+
+        // Obtener puertos de inicio y fin desde la clasificación
+        const firstParsed = parseClassificationType(firstInterval.classificationType)
+        const lastParsed = parseClassificationType(lastInterval.classificationType)
+
+        // Determinar puertos de manera más robusta
+        let startPort = firstParsed.port || firstParsed.fromPort || '?'
+        let endPort = lastParsed.port || lastParsed.toPort || '?'
+
+        // Si no se pudo determinar desde clasificación, usar puertos de coordenadas
+        if (startPort === '?') {
+          startPort = firstInterval.startPort?.name || 'Desconocido'
+        }
+        if (endPort === '?') {
+          // Usar el puerto detectado por coordenadas
+          endPort = lastInterval.endPort?.name || 'Desconocido'
+
+          // Si sigue siendo desconocido y es navegación, podría ser un trayecto incompleto
+          if (endPort === 'Desconocido' && lastInterval.navStatus === '2.0') {
+            endPort = 'Destino pendiente'
+          }
+        }
+
+        // Calcular duración total
+      let totalSeconds = 0
+        data.intervals.forEach(interval => {
+        totalSeconds += durationToSeconds(interval.duration)
+      })
+
+        // Determinar si el trayecto está incompleto
+        // Solo es incompleto si termina en navegación (2.0), no en maniobra (1.0)
+        // porque la maniobra es parte del proceso normal de llegada
+        const isIncomplete = lastInterval.navStatus === '2.0'
+
+        return {
+          journeyIndex: jIndex,
+          startPort,
+          endPort,
+          startDate: firstInterval.startDate,
+          startTime: firstInterval.startTime,
+          endDate: lastInterval.endDate,
+          endTime: lastInterval.endTime,
+          intervalIndices: data.intervalIndices,
+          totalDuration: totalSeconds,
+          isIncomplete // Nueva propiedad para indicar trayecto incompleto
+        }
+      })
+  }, [results?.data?.intervals, parseClassificationType, durationToSeconds])
 
   // Seleccionar/deseleccionar trayecto (permite múltiple selección)
   const selectJourney = useCallback((journeyIndex: number) => {
@@ -324,24 +341,28 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     const activityGroups: { [key: string]: { duration: number; count: number; color: string } } = {}
 
     intervals.forEach(interval => {
-      // Clasificar el intervalo usando la misma lógica que LineChart
-      const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
+      // Usar el classificationType que ya viene del JSON
+      const parsed = parseClassificationType(interval.classificationType)
 
       let key: string
       let color: string
 
-      if (classification.type === 'docked') {
+      if (parsed.type === 'docked' && parsed.port) {
         // Atracado en un puerto específico
-        key = `Atracado_${classification.atPort}`
-        color = getActivityColor('docked', classification.atPort || '')
-      } else if (classification.type === 'maneuvering') {
+        key = `Atracado_${parsed.port}`
+        color = getActivityColor('docked', parsed.port)
+      } else if (parsed.type === 'maneuvering' && parsed.port) {
         // Maniobrando en un puerto específico
-        key = `Maniobrando_${classification.atPort}`
-        color = getActivityColor('maneuvering', classification.atPort || '')
-      } else if (classification.type === 'transit') {
+        key = `Maniobrando_${parsed.port}`
+        color = getActivityColor('maneuvering', parsed.port)
+      } else if (parsed.type === 'transit' && parsed.fromPort && parsed.toPort) {
         // Navegando entre puertos
-        key = `Navegando ${classification.fromPort} → ${classification.toPort}`
-        color = getActivityColor('transit', classification.fromPort || '', classification.toPort)
+        key = `Navegando ${parsed.fromPort} → ${parsed.toPort}`
+        color = getActivityColor('transit', parsed.fromPort, parsed.toPort)
+      } else if (parsed.type === 'transit' && parsed.port) {
+        // Navegando cerca de un puerto
+        key = `Navegando cerca de ${parsed.port}`
+        color = getActivityColor('transit', parsed.port)
       } else {
         // Estado indefinido
         key = 'Indefinido'
@@ -382,7 +403,7 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
         }
       }
     }).sort((a, b) => b.value - a.value)
-  }, [classifyInterval, getActivityColor, durationToSeconds])
+  }, [parseClassificationType, getActivityColor, durationToSeconds])
 
   // Memoizar los datos del gráfico de intervalos seleccionados
   const pieChartData = useMemo(() => {
@@ -404,7 +425,7 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
          <CardHeader className="pb-2">
           <div className="flex items-center gap-2">
                <CardTitle className="text-white text-lg font-semibold">
-              Análisis de navegación por intervalos
+              Análisis de navegación por intervalos (en pruebas)
                </CardTitle>
             <button
               onClick={() => setShowHelp(!showHelp)}
@@ -424,12 +445,13 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
             <div className="mt-4 p-4 rounded-md text-sm" style={{ backgroundColor: '#2C2C2C', border: '1px solid #4B5563' }}>
               <h4 className="text-white font-semibold mb-2">ℹ️ Cómo usar el análisis por intervalos</h4>
               <ul className="text-gray-300 space-y-2 text-xs">
-                <li><strong className="text-cyan-400">Trayectos (izquierda):</strong> Un trayecto es el viaje completo desde que el barco está atracado en un puerto hasta que está atracado en otro puerto. Haz clic en uno o varios trayectos para seleccionar sus intervalos (se pueden seleccionar múltiples)</li>
+                <li><strong className="text-cyan-400">Trayectos (izquierda):</strong> Los trayectos se generan automáticamente agrupando intervalos relacionados. Cada trayecto tiene un número único (journeyIndex) y muestra el origen y destino detectados desde los datos procesados</li>
+                <li><strong className="text-yellow-400">Trayectos incompletos:</strong> Se marcan con una etiqueta amarilla cuando terminan en navegación (estado 2.0) sin llegar a atracar en el destino</li>
                 <li><strong className="text-white">Selección desde el gráfico:</strong> Haz clic derecho en los intervalos del gráfico de líneas para seleccionarlos/deseleccionarlos individualmente</li>
                 <li><strong className="text-white">Botones de la derecha:</strong> Usa los botones de la columna derecha para filtrar rápidamente intervalos por tipo de actividad</li>
                 <li><strong className="text-white">Diagrama de tarta:</strong> Visualiza las proporciones de tiempo de cada actividad en los intervalos seleccionados</li>
-                <li><strong className="text-gray-400">Atracado:</strong> El barco está detenido en un puerto</li>
-                <li><strong className="text-orange-400">Maniobrando:</strong> El barco está maniobrando cerca de un puerto</li>
+                <li><strong className="text-gray-400">Atracado:</strong> El barco está detenido en un puerto (&lt; 4km)</li>
+                <li><strong className="text-orange-400">Maniobrando:</strong> El barco está maniobrando cerca de un puerto (&lt; 10km) - parte del proceso de llegada</li>
                 <li><strong className="text-green-400">Navegando:</strong> El barco está en tránsito entre puertos diferentes</li>
                 <li><strong className="text-red-400">Indefinido:</strong> Estados que no cumplen las condiciones anteriores</li>
               </ul>
@@ -440,7 +462,21 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
           <div className="flex gap-6">
             {/* Columna izquierda: Lista de trayectos */}
             <div className="w-72 flex-shrink-0">
-              <h3 className="text-white font-semibold text-sm mb-3">Trayectos detectados ({journeys.length})</h3>
+              <h3 className="text-white font-semibold text-sm mb-3">
+                Trayectos detectados ({journeys.length})
+                {results?.data?.intervals && (
+                  <>
+                    <span className="text-xs text-gray-400 ml-2">
+                      de {results.data.intervals.filter(i => i.journeyIndex !== null && i.journeyIndex !== undefined).length} intervalos asignados
+                    </span>
+                    {journeys.some(j => j.isIncomplete) && (
+                      <span className="text-xs text-yellow-400 ml-2">
+                        ({journeys.filter(j => j.isIncomplete).length} incompletos)
+                      </span>
+                    )}
+                  </>
+                )}
+              </h3>
               <ScrollArea style={{ height: '600px' }}>
                 <div className="flex flex-col gap-2 pr-3">
                   {journeys.map((journey) => {
@@ -451,15 +487,22 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
                         key={journey.journeyIndex}
                         onClick={() => selectJourney(journey.journeyIndex)}
                         className="px-4 py-3 text-left rounded-lg transition-all hover:bg-gray-700"
-                        style={{
+                          style={{
                           backgroundColor: isSelected ? '#374151' : '#2C2C2C',
                           border: 'none'
                         }}
                       >
                         <div className="flex flex-col gap-1">
-                          <div className="text-sm font-semibold" style={{ color: isSelected ? '#6EE7B7' : '#10B981' }}>
-                            {journey.startPort} → {journey.endPort}
-                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-semibold" style={{ color: isSelected ? '#6EE7B7' : '#10B981' }}>
+                              {journey.startPort} → {journey.endPort}
+                            </div>
+                            {journey.isIncomplete && (
+                              <span className="text-xs px-2 py-1 rounded-full bg-yellow-900 text-yellow-200 border border-yellow-600">
+                                Incompleto
+                              </span>
+                            )}
+                    </div>
                         <div className="text-xs text-gray-400">
                           {formatDateShort(journey.startDate)}
                   </div>
@@ -471,8 +514,8 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
                           </div>
                         <div className="text-xs text-gray-500">
                           {journey.intervalIndices.length} intervalos
-                        </div>
-                      </div>
+                            </div>
+                          </div>
                     </button>
                     )
                   })}

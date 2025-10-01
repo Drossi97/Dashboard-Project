@@ -22,6 +22,9 @@ export interface DataInterval {
   // New fields for port analysis
   startPort?: PortAnalysis
   endPort?: PortAnalysis
+  // Journey assignment
+  journeyIndex?: number | null
+  classificationType?: string
 }
 
 export interface RawDataRow {
@@ -224,6 +227,24 @@ export function useCSVProcessor() {
         }
       }
 
+      // Ordenar todas las filas por timestamp cronológicamente
+      // Esto garantiza que aunque los archivos se suban en desorden, 
+      // los datos se procesen en el orden correcto
+      combined.sort((a, b) => {
+        const timeA = a?.[COL_TIME]
+        const timeB = b?.[COL_TIME]
+        
+        if (!timeA || !timeB) return 0
+        
+        try {
+          const dateA = new Date(timeA)
+          const dateB = new Date(timeB)
+          return dateA.getTime() - dateB.getTime()
+        } catch {
+          return 0
+        }
+      })
+
       // Use the same logic as csvToJson.js for computing intervals
       const computeNavigationIntervals = (rows: any[]) => {
         if (!Array.isArray(rows) || rows.length === 0) return []
@@ -340,6 +361,76 @@ export function useCSVProcessor() {
       }
 
       const intervals = computeNavigationIntervals(combined)
+
+      // Clasificar intervalos y asignar journeyIndex
+      const classifyInterval = (
+        navStatus: string,
+        startPort: PortAnalysis | undefined,
+        endPort: PortAnalysis | undefined
+      ): string => {
+        if (!startPort || !endPort) return "indefinido - sin puertos detectados"
+
+        const samePort = startPort.name === endPort.name
+        const startDistanceDocked = startPort.distance < 4
+        const endDistanceDocked = endPort.distance < 4
+        const startDistanceManeuvering = startPort.distance < 10
+        const endDistanceManeuvering = endPort.distance < 10
+
+        // Estado 0.0: Atracado
+        if (navStatus === "0.0" && samePort && startDistanceDocked && endDistanceDocked) {
+          return `atracado - ${startPort.name}`
+        }
+        
+        // Estado 1.0: Maniobrando
+        if (navStatus === "1.0" && samePort && startDistanceManeuvering && endDistanceManeuvering) {
+          return `maniobrando - ${startPort.name}`
+        }
+        
+        // Estado 2.0: Navegando (tránsito)
+        if (navStatus === "2.0") {
+          if (samePort) {
+            // Si detecta el mismo puerto, puede ser inicio/fin de viaje
+            return `navegando - cerca de ${startPort.name}`
+          } else {
+            // Diferentes puertos: muestra origen → destino
+            return `navegando - ${startPort.name} → ${endPort.name}`
+          }
+        }
+        
+        // Si no coincide con ninguna categoría clara
+        return `indefinido - estado ${navStatus}`
+      }
+
+      // Asignar clasificación y journeyIndex a cada intervalo
+      let currentJourneyIndex = 0
+      let journeyStartPort: string | null = null
+
+      intervals.forEach((interval, index) => {
+        // Clasificar el intervalo
+        interval.classificationType = classifyInterval(interval.navStatus, interval.startPort, interval.endPort)
+
+        // El primer intervalo SIEMPRE inicia un trayecto (aunque sea incompleto)
+        if (index === 0) {
+          interval.journeyIndex = currentJourneyIndex
+          journeyStartPort = interval.startPort?.name || null
+        }
+        // Para el resto de intervalos
+        else {
+          // Si es atracado en un puerto diferente al de inicio del trayecto, cambia de trayecto
+          const isDocked = interval.classificationType?.startsWith('atracado')
+          const currentPort = interval.startPort?.name
+          
+          if (isDocked && currentPort !== journeyStartPort) {
+            // Este intervalo inicia el SIGUIENTE trayecto
+            currentJourneyIndex++
+            journeyStartPort = currentPort || null
+            interval.journeyIndex = currentJourneyIndex
+          } else {
+            // Continúa en el trayecto actual
+            interval.journeyIndex = currentJourneyIndex
+          }
+        }
+      })
 
       return {
         success: true,

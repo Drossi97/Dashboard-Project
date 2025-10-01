@@ -56,62 +56,51 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
   const [dragStart, setDragStart] = useState<{x: number, y: number} | null>(null)
   const [hoveredData, setHoveredData] = useState<ChartDataPoint | null>(null)
 
-  // Función de clasificación compartida con NavigationPieChart
-  const classifyInterval = (
-    navStatus: string,
-    startPort: any | undefined,
-    endPort: any | undefined
-  ): IntervalClassification => {
-    // If no port data available
-    if (!startPort || !endPort) {
-      return {
-        type: "undefined",
-        description: "undefined - no port data available"
-      };
+  // Función auxiliar para extraer información del classificationType
+  const parseClassificationType = (classificationType?: string): IntervalClassification => {
+    if (!classificationType) {
+      return { type: 'undefined', description: 'No classification available' }
     }
 
-    const samePort = startPort.name === endPort.name;
-    const startDistanceDocked = startPort.distance < 4; // 4 km para atracado
-    const endDistanceDocked = endPort.distance < 4;
-    const startDistanceManeuvering = startPort.distance < 10; // 10 km para maniobrando
-    const endDistanceManeuvering = endPort.distance < 10;
-    const maxDistanceFromAnyPort = Math.max(startPort.distance, endPort.distance) > 40; // > 40 km = indefinido
-
-    // Rule 1: Docked (atracado) - requiere estar a < 4 km del puerto
-    if (navStatus === "0.0" && samePort && startDistanceDocked && endDistanceDocked) {
-      return {
-        type: "docked",
-        description: `docked at ${startPort.name}`,
-        atPort: startPort.name
-      };
+    if (classificationType.startsWith('atracado - ')) {
+      const port = classificationType.replace('atracado - ', '')
+      return { 
+        type: 'docked', 
+        description: `docked at ${port}`,
+        atPort: port
+      }
     }
 
-    // Rule 2: Maneuvering (maniobrando) - requiere estar a < 10 km del puerto
-    if (navStatus === "1.0" && samePort && startDistanceManeuvering && endDistanceManeuvering) {
-      return {
-        type: "maneuvering",
-        description: `maneuvering at ${startPort.name}`,
-        atPort: startPort.name
-      };
+    if (classificationType.startsWith('maniobrando - ')) {
+      const port = classificationType.replace('maniobrando - ', '')
+      return { 
+        type: 'maneuvering', 
+        description: `maneuvering at ${port}`,
+        atPort: port
+      }
     }
 
-    // Rule 3: Transit (tránsito)
-    if (navStatus === "2.0" && !samePort) {
-      return {
-        type: "transit",
-        description: `in transit from ${startPort.name} to ${endPort.name}`,
-        fromPort: startPort.name,
-        toPort: endPort.name
-      };
+    if (classificationType.startsWith('navegando - ')) {
+      const rest = classificationType.replace('navegando - ', '')
+      if (rest.includes(' → ')) {
+        const [from, to] = rest.split(' → ')
+        return { 
+          type: 'transit', 
+          description: `in transit from ${from} to ${to}`,
+          fromPort: from,
+          toPort: to
+        }
+      } else if (rest.startsWith('cerca de ')) {
+        const port = rest.replace('cerca de ', '')
+        return { 
+          type: 'transit', 
+          description: `in transit near ${port}`,
+          atPort: port
+        }
+      }
     }
 
-    // Rule 4: Undefined (indefinido) - incluye casos donde el barco está > 40 km del puerto más cercano
-    return {
-      type: "undefined",
-      description: maxDistanceFromAnyPort
-        ? "Estado indefinido - demasiado lejos de puertos (> 40 km)"
-        : "Estado indefinido - condiciones no cumplidas"
-    };
+    return { type: 'undefined', description: classificationType }
   };
 
   // Crear datos del gráfico (un punto por intervalo en el centro)
@@ -131,8 +120,8 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
       const startTimestamp = new Date(`${interval.startDate} ${interval.startTime}`).getTime()
       const endTimestamp = new Date(`${interval.endDate} ${interval.endTime}`).getTime()
 
-      // Classify the interval using port distance logic
-      const classification = classifyInterval(interval.navStatus, interval.startPort, interval.endPort);
+      // Usar la clasificación que ya viene del JSON
+      const classification = parseClassificationType(interval.classificationType);
 
       // Verificar si hay un gap con el intervalo anterior
       if (index > 0) {
@@ -211,7 +200,7 @@ export function LineChart({ results, onIntervalClick, selectedIntervals = [] }: 
     })
 
     return data.sort((a, b) => a.timestamp - b.timestamp)
-  }, [results, results?.data?.intervals])
+  }, [results, results?.data?.intervals, parseClassificationType])
 
   // Filtrar datos según zoom
   const visibleData = useMemo(() => {
