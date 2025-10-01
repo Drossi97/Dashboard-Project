@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react"
+import React, { useState, useMemo, useCallback, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card"
 import { ScrollArea } from "./ui/scroll-area"
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts"
@@ -30,7 +30,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
 
 export function NavigationAnalysis({ results, selectedIntervals, setSelectedIntervals }: NavigationAnalysisProps) {
   const [showHelp, setShowHelp] = useState<boolean>(false)
-  const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const [activeFilter, setActiveFilter] = useState<string | null>('all')
 
   // Función auxiliar para extraer información del classificationType
   const parseClassificationType = useCallback((classificationType?: string) => {
@@ -169,6 +169,13 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
       setActiveFilter(type)
     }
   }, [results, parseClassificationType, setSelectedIntervals, activeFilter])
+
+  // Efecto para seleccionar todos los intervalos por defecto cuando se cargan los resultados
+  useEffect(() => {
+    if (results?.data?.intervals && results.data.intervals.length > 0) {
+      setSelectedIntervals(results.data.intervals.map((_, index) => index))
+    }
+  }, [results?.data?.intervals, setSelectedIntervals])
 
   // Calcular estadísticas de intervalos seleccionados
   const selectedIntervalsStats = useMemo(() => {
