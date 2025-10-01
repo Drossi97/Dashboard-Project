@@ -27,23 +27,10 @@ const ACTIVITY_COLORS: Record<string, string> = {
   "undefined": "#EF4444", // Rojo para intervalos indefinidos
 }
 
-interface Journey {
-  journeyIndex: number
-  startPort: string
-  endPort: string
-  startDate: string
-  startTime: string
-  endDate: string
-  endTime: string
-  intervalIndices: number[]
-  totalDuration: number
-  isIncomplete?: boolean
-}
 
 export function NavigationAnalysis({ results, selectedIntervals, setSelectedIntervals }: NavigationAnalysisProps) {
   const [showHelp, setShowHelp] = useState<boolean>(false)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
-  const [selectedJourneys, setSelectedJourneys] = useState<number[]>([])
 
   // Función auxiliar para extraer información del classificationType
   const parseClassificationType = useCallback((classificationType?: string) => {
@@ -52,8 +39,8 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     }
 
     if (classificationType.startsWith('atracado - ')) {
-      return { 
-        type: 'docked' as const, 
+      return {
+        type: 'docked' as const,
         port: classificationType.replace('atracado - ', ''),
         fromPort: null,
         toPort: null
@@ -61,8 +48,8 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     }
 
     if (classificationType.startsWith('maniobrando - ')) {
-      return { 
-        type: 'maneuvering' as const, 
+      return {
+        type: 'maneuvering' as const,
         port: classificationType.replace('maniobrando - ', ''),
         fromPort: null,
         toPort: null
@@ -149,19 +136,16 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     if (activeFilter === 'all') {
       setSelectedIntervals([])
       setActiveFilter(null)
-      setSelectedJourneys([])
     } else {
       // Si no está activo, activar
       setSelectedIntervals(results.data.intervals.map((_, index) => index))
       setActiveFilter('all')
-      setSelectedJourneys([])
     }
   }, [results, setSelectedIntervals, activeFilter])
 
   const clearSelection = useCallback(() => {
     setSelectedIntervals([])
     setActiveFilter(null)
-    setSelectedJourneys([])
   }, [setSelectedIntervals])
 
   // Seleccionar por tipo de actividad (toggle)
@@ -172,7 +156,6 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
     if (activeFilter === type) {
       setSelectedIntervals([])
       setActiveFilter(null)
-      setSelectedJourneys([])
     } else {
       // Si no está activo, activar
       const indices = results.data.intervals
@@ -181,138 +164,11 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
           return parsed.type === type ? index : -1
         })
         .filter(index => index !== -1)
-      
+
       setSelectedIntervals(indices)
       setActiveFilter(type)
-      setSelectedJourneys([])
     }
   }, [results, parseClassificationType, setSelectedIntervals, activeFilter])
-
-
-  // Función auxiliar para formatear fecha corta
-  const formatDateShort = useCallback((dateString: string): string => {
-    const parts = dateString.split('-')
-    if (parts.length !== 3) return dateString
-    const [year, month, day] = parts
-    return `${day}/${month}`
-  }, [])
-
-  // Función auxiliar para formatear hora corta (sin segundos)
-  const formatTimeShort = useCallback((timeString: string): string => {
-    const parts = timeString.split(':')
-    if (parts.length !== 3) return timeString
-    return `${parts[0]}:${parts[1]}`
-  }, [])
-
-  // Obtener trayectos desde el JSON (solo los que tienen journeyIndex asignado)
-  const journeys = useMemo(() => {
-    if (!results?.data?.intervals) return []
-
-    // Crear un mapa para agrupar intervalos por journeyIndex
-    const journeyMap = new Map<number, {
-      intervalIndices: number[]
-      intervals: any[]
-    }>()
-
-    // Solo procesar intervalos que tienen journeyIndex asignado
-    results.data.intervals.forEach((interval, index) => {
-      const jIndex = interval.journeyIndex
-      // Solo incluir intervalos que efectivamente tienen un journeyIndex válido
-      if (jIndex !== null && jIndex !== undefined && jIndex >= 0) {
-        if (!journeyMap.has(jIndex)) {
-          journeyMap.set(jIndex, { intervalIndices: [], intervals: [] })
-        }
-        journeyMap.get(jIndex)!.intervalIndices.push(index)
-        journeyMap.get(jIndex)!.intervals.push(interval)
-      }
-    })
-
-    // Convertir a array de Journey ordenados por journeyIndex
-    return Array.from(journeyMap.entries())
-      .sort((a, b) => a[0] - b[0]) // Ordenar por journeyIndex
-      .map(([jIndex, data]) => {
-        const firstInterval = data.intervals[0]
-        const lastInterval = data.intervals[data.intervals.length - 1]
-
-        // Obtener puertos de inicio y fin desde la clasificación
-        const firstParsed = parseClassificationType(firstInterval.classificationType)
-        const lastParsed = parseClassificationType(lastInterval.classificationType)
-
-        // Determinar puertos de manera más robusta
-        let startPort = firstParsed.port || firstParsed.fromPort || '?'
-        let endPort = lastParsed.port || lastParsed.toPort || '?'
-
-        // Si no se pudo determinar desde clasificación, usar puertos de coordenadas
-        if (startPort === '?') {
-          startPort = firstInterval.startPort?.name || 'Desconocido'
-        }
-        if (endPort === '?') {
-          // Usar el puerto detectado por coordenadas
-          endPort = lastInterval.endPort?.name || 'Desconocido'
-
-          // Si sigue siendo desconocido y es navegación, podría ser un trayecto incompleto
-          if (endPort === 'Desconocido' && lastInterval.navStatus === '2.0') {
-            endPort = 'Destino pendiente'
-          }
-        }
-
-        // Calcular duración total
-      let totalSeconds = 0
-        data.intervals.forEach(interval => {
-        totalSeconds += durationToSeconds(interval.duration)
-      })
-
-        // Determinar si el trayecto está incompleto
-        // Solo es incompleto si termina en navegación (2.0), no en maniobra (1.0)
-        // porque la maniobra es parte del proceso normal de llegada
-        const isIncomplete = lastInterval.navStatus === '2.0'
-
-        return {
-          journeyIndex: jIndex,
-          startPort,
-          endPort,
-          startDate: firstInterval.startDate,
-          startTime: firstInterval.startTime,
-          endDate: lastInterval.endDate,
-          endTime: lastInterval.endTime,
-          intervalIndices: data.intervalIndices,
-          totalDuration: totalSeconds,
-          isIncomplete // Nueva propiedad para indicar trayecto incompleto
-        }
-      })
-  }, [results?.data?.intervals, parseClassificationType, durationToSeconds])
-
-  // Seleccionar/deseleccionar trayecto (permite múltiple selección)
-  const selectJourney = useCallback((journeyIndex: number) => {
-    const journey = journeys[journeyIndex]
-    if (!journey) return
-    
-    setSelectedJourneys(prev => {
-      let newSelectedJourneys: number[]
-      
-      if (prev.includes(journeyIndex)) {
-        // Si ya está seleccionado, lo deseleccionamos
-        newSelectedJourneys = prev.filter(idx => idx !== journeyIndex)
-      } else {
-        // Si no está seleccionado, lo agregamos
-        newSelectedJourneys = [...prev, journeyIndex].sort((a, b) => a - b)
-      }
-      
-      // Combinar todos los intervalos de los trayectos seleccionados
-      const allIntervalIndices = new Set<number>()
-      newSelectedJourneys.forEach(jIdx => {
-        const j = journeys[jIdx]
-        if (j) {
-          j.intervalIndices.forEach(intervalIdx => allIntervalIndices.add(intervalIdx))
-        }
-      })
-      
-      setSelectedIntervals(Array.from(allIntervalIndices).sort((a, b) => a - b))
-      setActiveFilter(null)
-      
-      return newSelectedJourneys
-    })
-  }, [journeys, setSelectedIntervals])
 
   // Calcular estadísticas de intervalos seleccionados
   const selectedIntervalsStats = useMemo(() => {
@@ -445,10 +301,7 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
             <div className="mt-4 p-4 rounded-md text-sm" style={{ backgroundColor: '#2C2C2C', border: '1px solid #4B5563' }}>
               <h4 className="text-white font-semibold mb-2">ℹ️ Cómo usar el análisis por intervalos</h4>
               <ul className="text-gray-300 space-y-2 text-xs">
-                <li><strong className="text-cyan-400">Trayectos (izquierda):</strong> Los trayectos se generan automáticamente agrupando intervalos relacionados. Cada trayecto tiene un número único (journeyIndex) y muestra el origen y destino detectados desde los datos procesados</li>
-                <li><strong className="text-yellow-400">Trayectos incompletos:</strong> Se marcan con una etiqueta amarilla cuando terminan en navegación (estado 2.0) sin llegar a atracar en el destino</li>
-                <li><strong className="text-white">Selección desde el gráfico:</strong> Haz clic derecho en los intervalos del gráfico de líneas para seleccionarlos/deseleccionarlos individualmente</li>
-                <li><strong className="text-white">Botones de la derecha:</strong> Usa los botones de la columna derecha para filtrar rápidamente intervalos por tipo de actividad</li>
+                <li><strong className="text-white">Filtros rápidos:</strong> Usa los botones de la derecha para filtrar intervalos por tipo de actividad</li>
                 <li><strong className="text-white">Diagrama de tarta:</strong> Visualiza las proporciones de tiempo de cada actividad en los intervalos seleccionados</li>
                 <li><strong className="text-gray-400">Atracado:</strong> El barco está detenido en un puerto (&lt; 4km)</li>
                 <li><strong className="text-orange-400">Maniobrando:</strong> El barco está maniobrando cerca de un puerto (&lt; 10km) - parte del proceso de llegada</li>
@@ -460,76 +313,9 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
         </CardHeader>
         <CardContent>
           <div className="flex gap-6">
-            {/* Columna izquierda: Lista de trayectos */}
-            <div className="w-72 flex-shrink-0">
-              <h3 className="text-white font-semibold text-sm mb-3">
-                Trayectos detectados ({journeys.length})
-                {results?.data?.intervals && (
-                  <>
-                    <span className="text-xs text-gray-400 ml-2">
-                      de {results.data.intervals.filter(i => i.journeyIndex !== null && i.journeyIndex !== undefined).length} intervalos asignados
-                    </span>
-                    {journeys.some(j => j.isIncomplete) && (
-                      <span className="text-xs text-yellow-400 ml-2">
-                        ({journeys.filter(j => j.isIncomplete).length} incompletos)
-                      </span>
-                    )}
-                  </>
-                )}
-              </h3>
-              <ScrollArea style={{ height: '600px' }}>
-                <div className="flex flex-col gap-2 pr-3">
-                  {journeys.map((journey) => {
-                    const isSelected = selectedJourneys.includes(journey.journeyIndex)
-                    
-                    return (
-                      <button
-                        key={journey.journeyIndex}
-                        onClick={() => selectJourney(journey.journeyIndex)}
-                        className="px-4 py-3 text-left rounded-lg transition-all hover:bg-gray-700"
-                          style={{
-                          backgroundColor: isSelected ? '#374151' : '#2C2C2C',
-                          border: 'none'
-                        }}
-                      >
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <div className="text-sm font-semibold" style={{ color: isSelected ? '#6EE7B7' : '#10B981' }}>
-                              {journey.startPort} → {journey.endPort}
-                            </div>
-                            {journey.isIncomplete && (
-                              <span className="text-xs px-2 py-1 rounded-full bg-yellow-900 text-yellow-200 border border-yellow-600">
-                                Incompleto
-                              </span>
-                            )}
-                    </div>
-                        <div className="text-xs text-gray-400">
-                          {formatDateShort(journey.startDate)}
-                  </div>
-                        <div className="text-xs text-gray-400">
-                          {formatTimeShort(journey.startTime)} - {formatTimeShort(journey.endTime)}
-                            </div>
-                        <div className="text-xs text-gray-300">
-                          Duración: {formatDurationWithUnits(journey.totalDuration)}
-                          </div>
-                        <div className="text-xs text-gray-500">
-                          {journey.intervalIndices.length} intervalos
-                            </div>
-                          </div>
-                    </button>
-                    )
-                  })}
-                  {journeys.length === 0 && (
-                    <div className="text-center text-gray-400 py-8 text-sm">
-                      No se detectaron trayectos completos
-                        </div>
-                  )}
-                            </div>
-                          </ScrollArea>
-                        </div>
 
             {/* Columna centro: Gráfico de tarta */}
-            <div className="flex-1 min-w-0">
+                                      <div className="flex-1 min-w-0">
               <div className="w-full flex flex-col">
                 {/* Gráfico */}
                 <div className="w-full flex-shrink-0" style={{ height: '350px' }}>
@@ -554,7 +340,7 @@ export function NavigationAnalysis({ results, selectedIntervals, setSelectedInte
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center text-gray-400">
                         <p className="text-lg mb-2">Selecciona <span className="text-white font-semibold">intervalos</span></p>
-                        <p className="text-xs"><span className="text-white font-semibold">Clic derecho</span> en el gráfico o usa los filtros</p>
+                        <p className="text-xs">Usa los filtros de la derecha</p>
                         </div>
                       </div>
                   )}
