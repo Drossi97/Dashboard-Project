@@ -8,11 +8,11 @@ import { FileText, X } from "lucide-react"
 interface FileUploaderProps {
   files: File[]
   onFilesChange: (files: File[]) => void
-  onAnalyze: () => void
+  onProcessFiles: () => void
   isProcessing: boolean
 }
 
-export function FileUploader({ files, onFilesChange, onAnalyze, isProcessing }: FileUploaderProps) {
+export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessing }: FileUploaderProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragCounter, setDragCounter] = useState(0)
 
@@ -98,23 +98,28 @@ export function FileUploader({ files, onFilesChange, onAnalyze, isProcessing }: 
   }
 
   return (
-    <Card style={{ backgroundColor: '#171717', borderColor: '#2C2C2C' }}>
-      <CardContent className="p-6">
-        <div className="space-y-6">
-          {/* Zona de arrastre de archivos */}
-          <div
-            className={`w-full h-40 border-2 border-dashed rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 relative ${
-              isDragOver
-                ? 'border-blue-400 bg-blue-500/10'
-                : 'border-gray-600 hover:border-gray-500 hover:bg-gray-700/30'
-            }`}
-            style={{ backgroundColor: '#2C2C2C' }}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-            onClick={() => document.getElementById("files")?.click()}
-          >
+    <div className="relative">
+      {/* Fondo con blur y overlay */}
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-2xl"></div>
+      
+      <Card className="relative bg-gradient-to-br from-gray-800/95 to-gray-900/95 border-2 border-gray-500/60 shadow-2xl backdrop-blur-md ring-1 ring-white/10">
+        <CardContent className="p-8">
+          <div className="space-y-8 pt-8">
+
+            {/* Zona de arrastre de archivos */}
+            <div
+              className={`w-full h-64 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 relative group ${
+                isDragOver
+                  ? 'border-blue-400 bg-blue-500/20 scale-105 shadow-lg shadow-blue-500/20'
+                  : 'border-gray-400 hover:border-blue-400 hover:bg-gray-700/40 hover:scale-102 hover:shadow-lg hover:shadow-gray-500/10'
+              }`}
+              style={{ backgroundColor: '#1F2937' }}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById("files")?.click()}
+            >
             <Input
               id="files"
               type="file"
@@ -124,92 +129,116 @@ export function FileUploader({ files, onFilesChange, onAnalyze, isProcessing }: 
               className="hidden"
             />
 
-            <div className="flex flex-col items-center space-y-3">
-              <div
-                className="w-12 h-12 rounded-full flex items-center justify-center shadow-md"
-                style={{ backgroundColor: '#374151' }}
-              >
-                <FileText className="h-6 w-6 text-gray-200" />
-              </div>
+              <div className="flex flex-col items-center space-y-4">
+                <div
+                  className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
+                    isDragOver 
+                      ? 'bg-blue-500 scale-110' 
+                      : 'bg-gradient-to-br from-blue-600 to-blue-700 group-hover:from-blue-500 group-hover:to-blue-600'
+                  }`}
+                >
+                  <FileText className={`h-8 w-8 transition-colors duration-300 ${
+                    isDragOver ? 'text-white' : 'text-blue-100'
+                  }`} />
+                </div>
 
-              <div className="text-center">
-                <p className="text-sm text-gray-300 font-medium">
-                  {isDragOver ? 'Soltar archivos aquí' : 'Arrastra archivos CSV aquí'}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">
-                  o haz clic para seleccionar
-                </p>
-              </div>
-            </div>
-
-            {/* Indicador visual de drag over */}
-            {isDragOver && (
-              <div className="absolute inset-0 border-2 border-blue-400 border-dashed rounded-xl bg-blue-500/20 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-blue-400 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
+                  <p className="text-lg text-white font-semibold mb-1">
+                    {isDragOver ? '¡Suelta los archivos aquí!' : 'Arrastra archivos CSV aquí'}
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    o haz clic para seleccionar archivos
+                  </p>
+                </div>
+              </div>
+
+              {/* Indicador visual de drag over */}
+              {isDragOver && (
+                <div className="absolute inset-0 border-2 border-blue-400 border-dashed rounded-2xl bg-blue-500/30 flex items-center justify-center backdrop-blur-sm">
+                  <div className="text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-400 flex items-center justify-center animate-pulse">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <p className="text-blue-200 font-semibold text-lg">¡Suelta para subir!</p>
                   </div>
-                  <p className="text-blue-300 font-medium">Soltar para subir</p>
+                </div>
+              )}
+          </div>
+
+            {/* Área de archivos seleccionados */}
+            {files.length > 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-white font-semibold text-base">Archivos seleccionados</Label>
+                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                    {files.length} archivo{files.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-40 overflow-y-auto">
+                  {files.map((file, index) => (
+                    <div
+                      key={`${file.name}-${index}`}
+                      className="w-full flex items-center justify-between gap-3 p-4 rounded-xl transition-all duration-200 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-500/40 hover:border-gray-400/60 shadow-sm hover:shadow-md"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-4 w-4 text-blue-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm text-white font-medium truncate block" title={file.name}>
+                            {file.name}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {(file.size / 1024).toFixed(1)} KB
+                          </span>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                        className="h-10 w-10 p-0 text-red-500 hover:text-red-400 hover:bg-red-500/30 rounded-lg flex-shrink-0 transition-all duration-200"
+                      >
+                        <X className="h-6 w-6" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
+        </div>
+
+          <div className="flex justify-center pt-6">
+            <button
+              onClick={onProcessFiles}
+              disabled={files.length === 0 || isProcessing}
+              className={`px-10 py-4 text-lg font-semibold rounded-xl transition-all duration-300 relative group ${
+                files.length === 0 || isProcessing
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg hover:shadow-xl'
+              }`}
+            >
+              {isProcessing ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Procesando...
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  
+                  Procesar Datos
+                </div>
+              )}
+              
+              {files.length > 0 && !isProcessing && (
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-400/20 to-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              )}
+            </button>
           </div>
-
-          {/* Área de archivos seleccionados */}
-          {files.length > 0 && (
-            <div className="space-y-3">
-              <Label className="text-white font-medium text-sm">Archivos seleccionados ({files.length}):</Label>
-              <div className="space-y-2">
-                {files.map((file, index) => (
-                  <div
-                    key={`${file.name}-${index}`}
-                    className="w-full flex items-center justify-between gap-3 p-3 rounded-xl transition-all duration-200"
-                    style={{
-                      backgroundColor: '#2C2C2C'
-                    }}
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <FileText className="h-4 w-4 text-gray-200 flex-shrink-0" />
-                      <span className="text-sm text-white font-medium truncate" title={file.name}>
-                        {file.name}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFile(index)}
-                      className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-transparent rounded-lg flex-shrink-0 transition-all duration-200"
-                      style={{ backgroundColor: 'transparent' }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex justify-center pt-4">
-          <button
-            onClick={onAnalyze}
-            disabled={files.length === 0 || isProcessing}
-            className="px-8 py-3 text-base font-medium relative group disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-            style={{
-              backgroundColor: 'transparent',
-              borderColor: 'transparent',
-              color: files.length === 0 || isProcessing ? '#4B5563' : '#FFFFFF'
-            }}
-          >
-            {isProcessing ? "Procesando..." : "Procesar Datos"}
-            {files.length > 0 && !isProcessing && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-white to-transparent opacity-60 group-hover:opacity-100 transition-opacity duration-200"></div>
-            )}
-          </button>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </div>
   )
 }
