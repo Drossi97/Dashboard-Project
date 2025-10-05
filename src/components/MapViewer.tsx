@@ -180,7 +180,9 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
 
     // Crear mapa centrado en el Estrecho de Gibraltar
     const map = L.map(mapRef.current, {
-      zoomControl: false
+      zoomControl: false,
+      minZoom: 10,  // Límite mínimo: vista regional del Estrecho de Gibraltar
+      maxZoom: 18   // Límite máximo de acercamiento (zoom in)
     }).setView([36.0, -5.4], 10)
 
     // Configurar z-index del contenedor del mapa

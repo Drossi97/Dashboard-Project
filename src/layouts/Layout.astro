@@ -22,17 +22,8 @@ const { title = "Dashboard", description = "Dashboard de an√°lisis de rutas mar√
           crossorigin=""/>
   </head>
   <body class="min-h-screen text-white relative overflow-x-hidden">
-    <!-- Fondo con imagen del barco -->
-    <div class="fixed inset-0">
-      <!-- Imagen de fondo del barco sin efectos -->
-      <div 
-        class="absolute inset-0 bg-cover bg-center bg-no-repeat"
-        style="background-image: url('/TEX.jpg');"
-      ></div>
-    </div>
-    
-    <!-- Contenido principal con z-index para estar por encima del fondo -->
-    <div class="relative z-10">
+    <!-- Contenido principal -->
+    <div class="relative">
       <slot />
     </div>
     
@@ -74,19 +65,6 @@ const { title = "Dashboard", description = "Dashboard de an√°lisis de rutas mar√
   body {
     color: hsl(var(--foreground));
     background: hsl(var(--background));
-  }
-
-  /* Estilos para el fondo con imagen */
-  .bg-cover {
-    background-size: cover;
-  }
-  
-  .bg-center {
-    background-position: center;
-  }
-  
-  .bg-no-repeat {
-    background-repeat: no-repeat;
   }
 
   /* Personalizaci√≥n de la barra de scroll */

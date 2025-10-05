@@ -253,10 +253,18 @@ export default function JourneySelector({
 
   return (
     <div className="absolute top-4 right-4 z-[99999] interface-component journey-selector" style={{ zIndex: 99999 }}>
-      <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 max-w-sm" style={{ zIndex: 99999, backgroundColor: 'rgba(31, 41, 55, 0.95)' }}>
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-2">
+      <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-80 sm:w-96 max-w-none max-h-[calc(100vh-3rem)]" style={{ zIndex: 99999, backgroundColor: '#1F2937' }}>
+        <div className="p-4 pr-2">
+          {/* Título */}
+          <div className="mb-3 text-center">
             <h4 className="text-white font-medium">Seleccionar Trayecto</h4>
+          </div>
+          
+          {/* Línea separadora */}
+          <div className="border-b border-gray-600 mb-3"></div>
+          
+          {/* Botón de estadísticas */}
+          <div className="flex justify-center mb-3">
             <button
               onClick={onShowStats}
               className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
@@ -268,13 +276,13 @@ export default function JourneySelector({
             </button>
           </div>
           
-          {/* Checkbox para seleccionar todos */}
+          {/* Checkbox para seleccionar todos - reorganizado */}
           {availableJourneys.length > 0 && (
-            <div className="flex justify-end mb-3">
-              <label className="flex items-center gap-2 cursor-pointer transition-colors">
-                <span className="text-sm text-gray-300 select-none">
-                  {selectedJourneys.size === availableJourneys.length ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
-                </span>
+            <div className="flex items-center justify-end gap-2 mb-3 pb-2 border-b border-gray-600">
+              <span className="text-sm text-gray-300">
+                {selectedJourneys.size === availableJourneys.length ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
+              </span>
+              <label className="flex items-center cursor-pointer transition-colors">
                 <div className="relative">
                   <input
                     type="checkbox"
@@ -298,7 +306,13 @@ export default function JourneySelector({
             </div>
           )}
           
-          <div className="space-y-2 max-h-[600px] overflow-y-auto panel-scroll">
+          <div 
+            className="space-y-2 max-h-[calc(100vh-400px)] sm:max-h-[500px] overflow-y-auto pr-2"
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#6B7280 transparent'
+            }}
+          >
             {availableJourneys.length > 0 ? (
               availableJourneys.map((journey) => {
               const isSelected = selectedJourneys.has(journey.index)
@@ -432,13 +446,6 @@ export default function JourneySelector({
             )}
           </div>
           
-          {selectedJourneys.size > 0 && (
-            <div className="mt-3 pt-3 border-t border-gray-600">
-              <div className="text-xs text-gray-300">
-                Seleccionados: {selectedJourneys.size} trayecto{selectedJourneys.size > 1 ? 's' : ''}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

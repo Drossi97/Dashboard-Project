@@ -1,32 +1,6 @@
 import React from "react"
 import { CSVIntervalResult } from "../hooks/useCSVInterval"
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale,
-} from 'chart.js'
-import { Chart } from 'react-chartjs-2'
-import 'chartjs-adapter-date-fns'
-
-// Registrar componentes de Chart.js
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  LineElement,
-  PointElement,
-  Title,
-  Tooltip,
-  Legend,
-  TimeScale
-)
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Brush, ReferenceLine } from 'recharts'
 
 interface IntervalStatsProps {
   csvResults: CSVIntervalResult | null
@@ -45,6 +19,18 @@ interface IntervalData {
   endTime?: string
   avgSpeed?: number
   navStatus?: string
+}
+
+interface SpeedDataPoint {
+  time: string
+  fullDateTime?: string // Fecha completa para el eje superior
+  speed: number
+  navStatus: string
+  stateValue: number // Nuevo campo para el valor numérico del estado
+  classificationType: string
+  intervalNumber: number
+  journeyIndex: number
+  duration: string
 }
 
 // Función para convertir duración a segundos
@@ -104,6 +90,56 @@ const extractIntervalData = (csvResults: CSVIntervalResult | null, selectedJourn
   return intervalData
 }
 
+// Función para preparar datos del gráfico de velocidad y estado
+const prepareSpeedData = (intervalData: IntervalData[]): SpeedDataPoint[] => {
+  // Ordenar por tiempo de inicio
+  const sortedData = intervalData.sort((a, b) => {
+    const timeA = new Date(a.startTime || 0).getTime()
+    const timeB = new Date(b.startTime || 0).getTime()
+    return timeA - timeB
+  })
+
+  const speedDataPoints: SpeedDataPoint[] = []
+
+  sortedData.forEach((interval) => {
+    const startTime = new Date(interval.startTime || 0)
+    const endTime = new Date(interval.endTime || 0)
+    const avgSpeed = interval.avgSpeed || 0
+    const navStatusValue = parseFloat(interval.navStatus || '0.0') // Convertir a número
+
+    // Calcular la duración en minutos para determinar cuántos puntos crear
+    const durationMs = endTime.getTime() - startTime.getTime()
+    const durationMinutes = durationMs / (1000 * 60)
+    
+    // Crear puntos intermedios basados en la duración real del intervalo
+    // Mínimo 2 puntos (inicio y fin), máximo 1 punto cada 2 minutos
+    const numPoints = Math.max(2, Math.min(Math.ceil(durationMinutes / 2), 10))
+    
+    for (let i = 0; i < numPoints; i++) {
+      const progress = i / (numPoints - 1) // 0 al inicio, 1 al final
+      const currentTime = new Date(startTime.getTime() + (durationMs * progress))
+      
+      speedDataPoints.push({
+        time: currentTime.toLocaleTimeString('es-ES', { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: false 
+        }),
+        fullDateTime: currentTime.toISOString(), // Guardar fecha completa para el eje superior
+        speed: avgSpeed,
+        navStatus: interval.navStatus || '0.0',
+        stateValue: navStatusValue,
+        classificationType: interval.classificationType,
+        intervalNumber: interval.intervalNumber,
+        journeyIndex: interval.journeyIndex,
+        duration: interval.duration
+      })
+    }
+  })
+
+  return speedDataPoints
+}
+
 // Función para agrupar por tipo de clasificación
 const groupByClassification = (intervalData: IntervalData[]) => {
   const grouped = new Map<string, { totalSeconds: number, count: number, intervals: IntervalData[] }>()
@@ -135,120 +171,6 @@ const formatDuration = (seconds: number): string => {
     return `${minutes}m ${secs}s`
   } else {
     return `${secs}s`
-  }
-}
-
-// Función para preparar datos del gráfico
-const prepareChartData = (intervalData: IntervalData[]) => {
-  // Ordenar por tiempo de inicio
-  const sortedData = intervalData.sort((a, b) => {
-    const timeA = new Date(a.startTime || 0).getTime()
-    const timeB = new Date(b.startTime || 0).getTime()
-    return timeA - timeB
-  })
-
-  // Crear puntos para inicio y fin de cada intervalo
-  const chartPoints: Array<{
-    x: Date
-    speed: number
-    state: number
-    intervalNumber: number
-    duration: string
-    classificationType: string
-    isStart: boolean
-    isEnd: boolean
-  }> = []
-
-  sortedData.forEach((interval, index) => {
-    const startTime = new Date(interval.startTime || 0)
-    const endTime = new Date(interval.endTime || 0)
-
-    const navStatus = parseFloat(interval.navStatus || '0.0')
-
-    // Punto de inicio del intervalo
-    chartPoints.push({
-      x: startTime,
-      speed: interval.avgSpeed || 0,
-      state: navStatus,
-      intervalNumber: interval.intervalNumber || index + 1,
-      duration: interval.duration || '0s',
-      classificationType: interval.classificationType || 'Desconocido',
-      isStart: true,
-      isEnd: false
-    })
-
-    // Punto de fin del intervalo (solo si es diferente al inicio)
-    if (startTime.getTime() !== endTime.getTime()) {
-      chartPoints.push({
-        x: endTime,
-        speed: interval.avgSpeed || 0,
-        state: navStatus,
-        intervalNumber: interval.intervalNumber || index + 1,
-        duration: interval.duration || '0s',
-        classificationType: interval.classificationType || 'Desconocido',
-        isStart: false,
-        isEnd: true
-      })
-    }
-  })
-
-  // Ordenar puntos por tiempo
-  chartPoints.sort((a, b) => {
-    return a.x.getTime() - b.x.getTime()
-  })
-
-  const labels = chartPoints.map(point => point.x)
-  const speedData = chartPoints.map(point => point.speed)
-  const stateData = chartPoints.map(point => point.state)
-
-  const datasets = [
-    {
-      type: 'line' as const,
-      label: 'Velocidad (nudos)',
-      data: speedData,
-      backgroundColor: 'rgba(59, 130, 246, 0.3)',
-      borderColor: 'rgba(59, 130, 246, 1)',
-      borderWidth: 3,
-      fill: true,
-      tension: 0,
-      stepped: 'after' as const,
-      pointBackgroundColor: 'rgba(59, 130, 246, 1)',
-      pointBorderColor: 'rgba(59, 130, 246, 1)',
-      pointBorderWidth: 0,
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      xAxisID: 'x',
-      yAxisID: 'y',
-    },
-    {
-      type: 'line' as const,
-      label: 'Nav Status',
-      data: stateData,
-      backgroundColor: 'rgba(34, 197, 94, 0.3)',
-      borderColor: 'rgba(34, 197, 94, 1)',
-      borderWidth: 3,
-      fill: false,
-      tension: 0,
-      stepped: 'after' as const,
-      pointBackgroundColor: 'rgba(34, 197, 94, 1)',
-      pointBorderColor: 'rgba(34, 197, 94, 1)',
-      pointBorderWidth: 0,
-      pointRadius: 2,
-      pointHoverRadius: 4,
-      xAxisID: 'x',
-      yAxisID: 'y1',
-    }
-  ]
-
-  return {
-    labels,
-    datasets,
-    chartPoints, // Agregar los puntos para usar en tooltips
-    allData: {
-      labels,
-      datasets,
-      chartPoints
-    }
   }
 }
 
@@ -321,67 +243,97 @@ const PieChart: React.FC<PieChartProps> = ({ data, totalSeconds }) => {
 }
 
 export default function IntervalStats({ csvResults, selectedJourneys, isVisible, onClose }: IntervalStatsProps) {
-  // TODOS LOS HOOKS DEBEN ESTAR AL INICIO, ANTES DE CUALQUIER RETURN CONDICIONAL
-  const [zoomLevel, setZoomLevel] = React.useState(1)
-  const [timeRange, setTimeRange] = React.useState<{min: Date | null, max: Date | null}>({min: null, max: null})
-  const [panOffset, setPanOffset] = React.useState(0) // Offset para el pan
-  const [isPanning, setIsPanning] = React.useState(false)
-  const [lastMouseX, setLastMouseX] = React.useState(0)
+  // Todos los hooks deben declararse al principio, antes de cualquier return condicional
   const [selectedInterval, setSelectedInterval] = React.useState<IntervalData | null>(null)
+  const [showSpeedLine, setShowSpeedLine] = React.useState(true)
+  const [showStateLine, setShowStateLine] = React.useState(true)
+  const [brushRange, setBrushRange] = React.useState<[number, number] | null>(null)
+  const [isBrushMoving, setIsBrushMoving] = React.useState(false)
   
+  // Debounce para el cambio del brush
+  const brushChangeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+  // Función optimizada para el cambio del brush con movimiento libre (anti-parpadeo)
+  const handleBrushChange = React.useCallback((range: any) => {
+    if (range && range.startIndex !== undefined && range.endIndex !== undefined) {
+      setIsBrushMoving(true)
+      
+      // Cancelar el timeout anterior si existe
+      if (brushChangeTimeoutRef.current) {
+        clearTimeout(brushChangeTimeoutRef.current)
+      }
+      
+      // Actualizar el rango inmediatamente para el feedback visual
+      setBrushRange([range.startIndex, range.endIndex])
+      
+      // Debounce la actualización del estado de movimiento (aumentado para evitar parpadeos)
+      brushChangeTimeoutRef.current = setTimeout(() => {
+        setIsBrushMoving(false)
+      }, 150) // Aumentado a 150ms para evitar parpadeos durante zoom
+    }
+  }, [])
+
+  // Cleanup del timeout al desmontar
+  React.useEffect(() => {
+    return () => {
+      if (brushChangeTimeoutRef.current) {
+        clearTimeout(brushChangeTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Hacer el brush responsivo al cambio de tamaño de ventana (optimizado para evitar parpadeos)
+  React.useEffect(() => {
+    let resizeTimeout: NodeJS.Timeout | null = null
+    
+    const handleResize = () => {
+      // Debounce el resize para evitar parpadeos
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout)
+      }
+      
+      resizeTimeout = setTimeout(() => {
+        // Solo re-renderizar si realmente hay un brush activo
+        if (brushRange && brushRange[0] !== brushRange[1]) {
+          setBrushRange([...brushRange])
+        }
+      }, 100) // 100ms de debounce
+    }
+
+    // Usar ResizeObserver para detectar cambios de tamaño más precisos
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize()
+    })
+
+    // Observar el contenedor del brush si existe
+    const brushContainer = document.querySelector('.brush-container')
+    if (brushContainer) {
+      resizeObserver.observe(brushContainer)
+    }
+
+    window.addEventListener('resize', handleResize)
+    
+    return () => {
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout)
+      }
+      window.removeEventListener('resize', handleResize)
+      resizeObserver.disconnect()
+    }
+  }, [brushRange])
+
+  // Procesar datos
   const intervalData = extractIntervalData(csvResults, selectedJourneys)
   const groupedData = groupByClassification(intervalData)
-  
-  const getFullTimeRange = () => {
-    if (intervalData.length === 0) return {min: new Date(), max: new Date()}
-    
-    const allTimes = intervalData
-      .map(interval => [new Date(interval.startTime || 0), new Date(interval.endTime || 0)])
-      .flat()
-      .sort((a, b) => a.getTime() - b.getTime())
-    
-    return {
-      min: allTimes[0],
-      max: allTimes[allTimes.length - 1]
-    }
-  }
-  
-  const adjustTimeRange = React.useCallback((level: number, offset: number = 0) => {
-    if (intervalData.length === 0) return
-    
-    const {min: minTime, max: maxTime} = getFullTimeRange()
-    const totalDuration = maxTime.getTime() - minTime.getTime()
-    
-    // Calcular el rango visible basado en el nivel de zoom
-    const visibleDuration = totalDuration / level
-    let center = (minTime.getTime() + maxTime.getTime()) / 2
-    
-    // Aplicar offset del pan
-    if (level > 1) {
-      center += offset
-      
-      // Limitar el pan para no salirse de los datos
-      const maxOffset = (totalDuration - visibleDuration) / 2
-      center = Math.max(
-        minTime.getTime() + visibleDuration / 2,
-        Math.min(maxTime.getTime() - visibleDuration / 2, center)
-      )
-    }
-    
-    setTimeRange({
-      min: new Date(center - visibleDuration / 2),
-      max: new Date(center + visibleDuration / 2)
-    })
-  }, [intervalData])
-  
-  // Función para encontrar el intervalo que contiene una posición temporal
-  const findIntervalAtTime = React.useCallback((timestamp: number) => {
-    return intervalData.find(interval => {
-      const startTime = new Date(interval.startTime || 0).getTime()
-      const endTime = new Date(interval.endTime || 0).getTime()
-      return timestamp >= startTime && timestamp <= endTime
-    })
-  }, [intervalData])
+
+  // Preparar datos para el gráfico de velocidad y estado
+  const speedData = prepareSpeedData(intervalData)
+
+  // Filtrar datos según el rango de zoom (memoizado para mejor rendimiento y anti-parpadeo)
+  const zoomedData = React.useMemo(() => {
+    if (!brushRange || isBrushMoving) return speedData
+    return speedData.slice(brushRange[0], brushRange[1] + 1)
+  }, [speedData, brushRange, isBrushMoving])
   
   if (!isVisible) {
     return null
@@ -421,7 +373,7 @@ export default function IntervalStats({ csvResults, selectedJourneys, isVisible,
           }
         }}
       >
-        <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 max-w-2xl w-full mx-4" style={{ backgroundColor: 'rgba(31, 41, 55, 0.95)', zIndex: 999999 }}>
+        <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 max-w-2xl w-full mx-4" style={{ backgroundColor: '#1F2937', zIndex: 999999 }}>
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-white font-medium text-lg">Estadísticas de Intervalos</h4>
@@ -447,308 +399,6 @@ export default function IntervalStats({ csvResults, selectedJourneys, isVisible,
   const sortedGroups = Array.from(groupedData.entries())
     .sort((a, b) => b[1].totalSeconds - a[1].totalSeconds)
 
-  // Preparar datos para el gráfico
-  const chartData = prepareChartData(intervalData)
-  
-  const handleZoomIn = () => {
-    setZoomLevel(prev => {
-      const newLevel = Math.min(prev + 0.3, 3)
-      adjustTimeRange(newLevel, panOffset)
-      return newLevel
-    })
-  }
-  
-  const handleZoomOut = () => {
-    setZoomLevel(prev => {
-      const newLevel = Math.max(prev - 0.3, 0.5)
-      adjustTimeRange(newLevel, panOffset)
-      return newLevel
-    })
-  }
-  
-  const resetZoom = () => {
-    setZoomLevel(1)
-    setPanOffset(0)
-    setTimeRange({min: null, max: null})
-  }
-  
-  
-  // Funciones optimizadas para pan con ratón
-  const handleMouseDown = (event: React.MouseEvent) => {
-    if (zoomLevel <= 1) return // Solo permitir pan cuando hay zoom
-    
-    event.preventDefault()
-    setIsPanning(true)
-    setLastMouseX(event.clientX)
-    
-    // Cambiar cursor solo en el área del gráfico
-    const chartContainer = event.currentTarget as HTMLElement
-    chartContainer.style.cursor = 'grabbing'
-  }
-  
-  const handleMouseMove = (event: React.MouseEvent) => {
-    if (!isPanning || zoomLevel <= 1) return
-    
-    event.preventDefault()
-    
-    const deltaX = event.clientX - lastMouseX
-    
-    // Solo procesar si hay movimiento significativo (optimización)
-    if (Math.abs(deltaX) < 2) return
-    
-    const {min: minTime, max: maxTime} = getFullTimeRange()
-    const totalDuration = maxTime.getTime() - minTime.getTime()
-    const visibleDuration = totalDuration / zoomLevel
-    
-    // Convertir movimiento del ratón a movimiento temporal
-    // Sensibilidad reducida para mejor control
-    const sensitivity = 1.5
-    const timeDelta = (deltaX / 400) * visibleDuration * sensitivity
-    
-    setPanOffset(prev => {
-      const newOffset = prev - timeDelta
-      adjustTimeRange(zoomLevel, newOffset)
-      return newOffset
-    })
-    
-    setLastMouseX(event.clientX)
-  }
-  
-  const handleMouseUp = (event: React.MouseEvent) => {
-    if (!isPanning) return
-    
-    setIsPanning(false)
-    
-    // Restaurar cursor normal solo en el área del gráfico
-    const chartContainer = event.currentTarget as HTMLElement
-    chartContainer.style.cursor = zoomLevel > 1 ? 'grab' : 'default'
-  }
-  
-  const handleMouseLeave = (event: React.MouseEvent) => {
-    if (isPanning) {
-      setIsPanning(false)
-      const chartContainer = event.currentTarget as HTMLElement
-      chartContainer.style.cursor = zoomLevel > 1 ? 'grab' : 'default'
-    }
-  }
-  
-  const handleMouseEnter = (event: React.MouseEvent) => {
-    // Solo cambiar cursor cuando hay zoom y no estamos haciendo pan
-    if (zoomLevel > 1 && !isPanning) {
-      const chartContainer = event.currentTarget as HTMLElement
-      chartContainer.style.cursor = 'grab'
-    }
-  }
-  
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: {
-        type: 'time' as const,
-        min: timeRange.min ? timeRange.min.toISOString() : undefined,
-        max: timeRange.max ? timeRange.max.toISOString() : undefined,
-        time: {
-          displayFormats: {
-            millisecond: 'HH:mm:ss.SSS',
-            second: 'HH:mm:ss',
-            minute: 'HH:mm',
-            hour: 'HH:mm',
-            day: 'MM/dd',
-            week: 'MM/dd',
-            month: 'MM/yyyy',
-            quarter: 'MM/yyyy',
-            year: 'yyyy'
-          },
-          tooltipFormat: 'MM/dd HH:mm',
-          unit: (zoomLevel >= 2.5 ? 'minute' : zoomLevel >= 1.5 ? 'hour' : 'day') as 'minute' | 'hour' | 'day',
-          stepSize: zoomLevel >= 2.5 ? 15 : zoomLevel >= 2 ? 30 : zoomLevel >= 1.5 ? 1 : 1
-        },
-        ticks: {
-          color: '#9CA3AF',
-          maxTicksLimit: Math.max(3, Math.floor(12 / zoomLevel)),
-          callback: function(value: any) {
-            const date = new Date(value)
-            if (zoomLevel >= 2.5) {
-              // Zoom muy alto: mostrar minutos
-              return date.toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-              })
-            } else if (zoomLevel >= 1.5) {
-              // Zoom medio: mostrar horas
-              return date.toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-              })
-            } else {
-              // Zoom bajo: mostrar solo horas
-              return date.toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                hour12: false
-              })
-            }
-          }
-        },
-        grid: {
-          color: 'rgba(107, 114, 128, 0.5)',
-          lineWidth: 1
-        }
-      },
-      x1: {
-        type: 'time' as const,
-        position: 'top' as const,
-        display: true,
-        min: timeRange.min ? timeRange.min.toISOString() : undefined,
-        max: timeRange.max ? timeRange.max.toISOString() : undefined,
-        time: {
-          displayFormats: {
-            day: 'MM/dd',
-            hour: 'HH:mm',
-            minute: 'HH:mm'
-          },
-          tooltipFormat: 'MM/dd',
-          unit: (zoomLevel >= 2.5 ? 'hour' : 'day') as 'hour' | 'day',
-          stepSize: zoomLevel >= 2.5 ? 2 : 1
-        },
-        ticks: {
-          color: '#9CA3AF',
-          maxTicksLimit: Math.max(2, Math.floor(6 / zoomLevel)),
-          font: {
-            size: 11
-          },
-          callback: function(value: any) {
-            const date = new Date(value)
-            if (zoomLevel >= 2.5) {
-              // Zoom muy alto: mostrar horas en eje superior
-              return date.toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                hour12: false
-              })
-            } else {
-              // Zoom normal: mostrar fechas
-              return date.toLocaleDateString('es-ES', {
-                month: '2-digit',
-                day: '2-digit'
-              })
-            }
-          }
-        },
-        grid: {
-          display: true,
-          color: 'rgba(107, 114, 128, 0.2)',
-          lineWidth: 1,
-          drawOnChartArea: true
-        },
-        title: {
-          display: true,
-          text: zoomLevel >= 2.5 ? 'Horas' : 'Días',
-          color: '#9CA3AF',
-          font: {
-            size: 12
-          }
-        }
-      },
-      y: {
-        type: 'linear' as const,
-        display: true,
-        position: 'left' as const,
-        title: {
-          display: true,
-          text: 'Velocidad (nudos)',
-          color: '#3B82F6'
-        },
-        ticks: {
-          color: '#3B82F6'
-        },
-        grid: {
-          color: 'rgba(59, 130, 246, 0.4)',
-          lineWidth: 1
-        }
-      },
-      y1: {
-        type: 'linear' as const,
-        display: true,
-        position: 'right' as const,
-        title: {
-          display: true,
-          text: 'Nav Status',
-          color: '#22C55E'
-        },
-        ticks: {
-          color: '#22C55E',
-          stepSize: 1,
-          callback: function(value: any) {
-            const stateLabels: { [key: string]: string } = {
-              '0.0': 'Atracado/Parada',
-              '1.0': 'Maniobrando', 
-              '2.0': 'Navegando'
-            }
-            return stateLabels[value.toString()] || value
-          }
-        },
-        grid: {
-          drawOnChartArea: false,
-          color: 'rgba(34, 197, 94, 0.4)',
-          lineWidth: 1
-        },
-      }
-    },
-    plugins: {
-      legend: {
-        display: false
-      },
-      title: {
-        display: true,
-        text: 'Perfil de velocidad por trayecto',
-        color: '#FFFFFF',
-        font: {
-          size: 16
-        }
-      },
-      tooltip: {
-        enabled: false
-      },
-    },
-    interaction: {
-      mode: 'index' as const,
-      intersect: false,
-    },
-    onHover: (event: any, activeElements: any) => {
-      // Cambiar cursor para indicar que se puede hacer clic en cualquier parte del área
-      event.native.target.style.cursor = zoomLevel > 1 ? 'grab' : 'pointer'
-    },
-    onClick: function(event: any, elements: any) {
-      if (elements.length > 0) {
-        // Actualizar el intervalo seleccionado para los paneles
-        const pointIndex = elements[0].index
-        const chartPoints = chartData.chartPoints
-        if (chartPoints && chartPoints[pointIndex]) {
-          const point = chartPoints[pointIndex]
-          const interval = intervalData.find(interval => 
-            interval.intervalNumber === point.intervalNumber
-          )
-          if (interval) {
-            setSelectedInterval(interval)
-          }
-        }
-      }
-    },
-    elements: {
-      line: {
-        borderJoinStyle: 'miter' as const,
-      },
-      point: {
-        hoverBackgroundColor: '#FFFFFF',
-        hoverBorderColor: '#3B82F6',
-        hoverBorderWidth: 3,
-      }
-    },
-    animation: false as const
-  }
-
   return (
     <div 
       className="fixed inset-0 z-[999999] flex items-center justify-center bg-black bg-opacity-80 stats-modal" 
@@ -759,7 +409,15 @@ export default function IntervalStats({ csvResults, selectedJourneys, isVisible,
         }
       }}
     >
-      <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 max-w-6xl w-full mx-4 max-h-[95vh] overflow-y-auto" style={{ backgroundColor: 'rgba(31, 41, 55, 0.95)', zIndex: 999999 }}>
+      <div 
+        className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-[95vw] max-w-none mx-2 max-h-[95vh] overflow-y-auto" 
+        style={{ 
+          backgroundColor: '#1F2937', 
+          zIndex: 999999,
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#6B7280 transparent'
+        }}
+      >
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h4 className="text-white font-medium text-xl">Estadísticas por trayectos</h4>
@@ -773,170 +431,439 @@ export default function IntervalStats({ csvResults, selectedJourneys, isVisible,
             </button>
           </div>
           
-          {/* Gráfico principal */}
+          {/* Gráfico de perfil de velocidad y estado */}
           <div className="mb-6">
             <div className="bg-gray-700 rounded-lg p-6">
-              {/* Controles de zoom */}
-              <div className="flex items-center justify-center gap-2 mb-4">
-                <button
-                  onClick={handleZoomIn}
-                  disabled={zoomLevel >= 3}
-                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
-                  title="Acercar"
-                >
-                  🔍+
-                </button>
-                <button
-                  onClick={handleZoomOut}
-                  disabled={zoomLevel <= 0.5}
-                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-500 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
-                  title="Alejarse"
-                >
-                  🔍-
-                </button>
-                <button
-                  onClick={resetZoom}
-                  className="px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
-                  title="Reset"
-                >
-                  ↻
-                </button>
-              </div>
+              <h3 className="text-lg font-medium text-white mb-4">Perfil de Velocidad y Estado</h3>
               
-              <div className="flex gap-6">
-                {/* Gráfico */}
-                <div className="flex-1">
-                  <div 
-                    className="h-[32rem] relative"
-                    onMouseDown={handleMouseDown}
-                    onMouseMove={handleMouseMove}
-                    onMouseUp={handleMouseUp}
-                    onMouseLeave={handleMouseLeave}
-                    onMouseEnter={handleMouseEnter}
+              {/* Brush personalizado para navegación libre */}
+              {speedData.length > 20 && (
+                <div className="mb-4 h-16">
+                  <div className="brush-container relative w-full h-full bg-gray-800 rounded select-none">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={speedData}>
+                        <XAxis 
+                          dataKey="time" 
+                          tick={{ fill: '#9CA3AF', fontSize: 10, style: { userSelect: 'none' } }}
+                          axisLine={{ stroke: '#374151' }}
+                          tickFormatter={(value) => {
+                            // Convertir a formato HH:MM sin segundos
+                            const date = new Date(`1970-01-01T${value}`)
+                            return date.toLocaleTimeString('es-ES', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: false 
+                            })
+                          }}
+                        />
+                        <YAxis hide />
+                        <Tooltip content={() => null} />
+                        {showSpeedLine && (
+                          <Line 
+                            type="monotone" 
+                            dataKey="speed" 
+                            stroke="#3B82F6" 
+                            strokeWidth={1}
+                            dot={false}
+                            activeDot={false}
+                            name="Velocidad"
+                            isAnimationActive={false}
+                          />
+                        )}
+                        {showStateLine && (
+                          <Line 
+                            type="monotone" 
+                            dataKey="stateValue" 
+                            stroke="#10B981" 
+                            strokeWidth={1}
+                            dot={false}
+                            activeDot={false}
+                            name="Estado"
+                            isAnimationActive={false}
+                          />
+                        )}
+                      </LineChart>
+                    </ResponsiveContainer>
+                    
+                    {/* Brush personalizado libre */}
+                    <div className="absolute top-0 left-0 w-full h-full pointer-events-none select-none">
+                      <div 
+                        className="absolute top-0 h-full bg-blue-500 bg-opacity-30 border border-blue-400 cursor-move pointer-events-auto select-none transition-none"
                     style={{ 
-                      cursor: zoomLevel > 1 ? 'grab' : 'default',
-                      userSelect: 'none', // Prevenir selección de texto durante el pan
-                      overflow: 'hidden' // Evitar que el cursor se propague fuera del contenedor
+                          left: brushRange ? `${(brushRange[0] / (speedData.length - 1)) * 100}%` : '0%',
+                          width: brushRange ? `${((brushRange[1] - brushRange[0]) / (speedData.length - 1)) * 100}%` : '100%',
+                          willChange: isBrushMoving ? 'left, width' : 'auto'
+                        }}
+                        onMouseDown={(e) => {
+                          e.preventDefault()
+                          const startX = e.clientX
+                          const container = e.currentTarget.parentElement
+                          if (!container) return
+                          
+                          const getContainerRect = () => container.getBoundingClientRect()
+                          const containerRect = getContainerRect()
+                          const containerWidth = containerRect.width
+                          const startPercent = brushRange ? (brushRange[0] / (speedData.length - 1)) * 100 : 0
+                          const widthPercent = brushRange ? ((brushRange[1] - brushRange[0]) / (speedData.length - 1)) * 100 : 100
+                          
+                          const handleMouseMove = (moveEvent: MouseEvent) => {
+                            // Recalcular el ancho del contenedor en cada movimiento para ser responsivo
+                            const currentContainerRect = getContainerRect()
+                            const currentContainerWidth = currentContainerRect.width
+                            
+                            const deltaX = moveEvent.clientX - startX
+                            const deltaPercent = (deltaX / currentContainerWidth) * 100
+                            const newStartPercent = Math.max(0, Math.min(100 - widthPercent, startPercent + deltaPercent))
+                            const newEndPercent = newStartPercent + widthPercent
+                            
+                            const newStartIndex = Math.round((newStartPercent / 100) * (speedData.length - 1))
+                            const newEndIndex = Math.round((newEndPercent / 100) * (speedData.length - 1))
+                            
+                            setBrushRange([newStartIndex, newEndIndex])
+                          }
+                          
+                          const handleMouseUp = () => {
+                            document.removeEventListener('mousemove', handleMouseMove)
+                            document.removeEventListener('mouseup', handleMouseUp)
+                          }
+                          
+                          document.addEventListener('mousemove', handleMouseMove)
+                          document.addEventListener('mouseup', handleMouseUp)
+                        }}
+                      >
+                        {/* Handles para redimensionar */}
+                        <div 
+                          className="absolute left-0 top-0 w-2 h-full bg-blue-400 cursor-ew-resize hover:bg-blue-300 select-none transition-none"
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            const startX = e.clientX
+                            const container = e.currentTarget.parentElement?.parentElement
+                            if (!container) return
+                            
+                            const getContainerRect = () => container.getBoundingClientRect()
+                            const containerRect = getContainerRect()
+                            const containerWidth = containerRect.width
+                            
+                            // Mantener el extremo derecho fijo, solo mover el izquierdo
+                            const currentStartPercent = brushRange ? (brushRange[0] / (speedData.length - 1)) * 100 : 0
+                            const currentEndPercent = brushRange ? (brushRange[1] / (speedData.length - 1)) * 100 : 100
+                            
+                            const handleMouseMove = (moveEvent: MouseEvent) => {
+                              // Recalcular el ancho del contenedor en cada movimiento para ser responsivo
+                              const currentContainerRect = getContainerRect()
+                              const currentContainerWidth = currentContainerRect.width
+                              
+                              const deltaX = moveEvent.clientX - startX
+                              const deltaPercent = (deltaX / currentContainerWidth) * 100
+                              
+                              // Solo cambiar el inicio, mantener el final fijo
+                              const newStartPercent = Math.max(0, Math.min(currentEndPercent - 5, currentStartPercent + deltaPercent))
+                              
+                              const newStartIndex = Math.round((newStartPercent / 100) * (speedData.length - 1))
+                              const newEndIndex = Math.round((currentEndPercent / 100) * (speedData.length - 1))
+                              
+                              setBrushRange([newStartIndex, newEndIndex])
+                            }
+                            
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove)
+                              document.removeEventListener('mouseup', handleMouseUp)
+                            }
+                            
+                            document.addEventListener('mousemove', handleMouseMove)
+                            document.addEventListener('mouseup', handleMouseUp)
+                          }}
+                        />
+                        <div 
+                          className="absolute right-0 top-0 w-2 h-full bg-blue-400 cursor-ew-resize hover:bg-blue-300 select-none transition-none"
+                          onMouseDown={(e) => {
+                            e.stopPropagation()
+                            const startX = e.clientX
+                            const container = e.currentTarget.parentElement?.parentElement
+                            if (!container) return
+                            
+                            const getContainerRect = () => container.getBoundingClientRect()
+                            const containerRect = getContainerRect()
+                            const containerWidth = containerRect.width
+                            
+                            // Mantener el extremo izquierdo fijo, solo mover el derecho
+                            const currentStartPercent = brushRange ? (brushRange[0] / (speedData.length - 1)) * 100 : 0
+                            const currentEndPercent = brushRange ? (brushRange[1] / (speedData.length - 1)) * 100 : 100
+                            
+                            const handleMouseMove = (moveEvent: MouseEvent) => {
+                              // Recalcular el ancho del contenedor en cada movimiento para ser responsivo
+                              const currentContainerRect = getContainerRect()
+                              const currentContainerWidth = currentContainerRect.width
+                              
+                              const deltaX = moveEvent.clientX - startX
+                              const deltaPercent = (deltaX / currentContainerWidth) * 100
+                              
+                              // Solo cambiar el final, mantener el inicio fijo
+                              const newEndPercent = Math.max(currentStartPercent + 5, Math.min(100, currentEndPercent + deltaPercent))
+                              
+                              const newStartIndex = Math.round((currentStartPercent / 100) * (speedData.length - 1))
+                              const newEndIndex = Math.round((newEndPercent / 100) * (speedData.length - 1))
+                              
+                              setBrushRange([newStartIndex, newEndIndex])
+                            }
+                            
+                            const handleMouseUp = () => {
+                              document.removeEventListener('mousemove', handleMouseMove)
+                              document.removeEventListener('mouseup', handleMouseUp)
+                            }
+                            
+                            document.addEventListener('mousemove', handleMouseMove)
+                            document.addEventListener('mouseup', handleMouseUp)
+                          }}
+                        />
+                    </div>
+                  </div>
+                    </div>
+                  </div>
+              )}
+
+              {/* Controles de visibilidad arriba del gráfico */}
+              <div className="flex justify-end mb-4">
+                <div className="bg-gray-700 bg-opacity-90 rounded-lg p-2 backdrop-blur-sm">
+                  <div className="flex gap-4">
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer select-none"
+                      onClick={() => setShowSpeedLine(!showSpeedLine)}
+                    >
+                      <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
+                        showSpeedLine 
+                          ? 'bg-blue-500 border-blue-500' 
+                          : 'bg-transparent border-gray-400 hover:border-blue-400'
+                      }`}>
+                        {showSpeedLine && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
+                      <span className="text-white text-sm flex items-center gap-2 hover:text-blue-300 transition-colors">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        Velocidad
+                      </span>
+                    </div>
+                    <div 
+                      className="flex items-center gap-2 cursor-pointer select-none"
+                      onClick={() => setShowStateLine(!showStateLine)}
+                    >
+                      <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
+                        showStateLine 
+                          ? 'bg-green-500 border-green-500' 
+                          : 'bg-transparent border-gray-400 hover:border-green-400'
+                      }`}>
+                        {showStateLine && (
+                          <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                  </div>
+                      <span className="text-white text-sm flex items-center gap-2 hover:text-green-300 transition-colors">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        Estado
+                      </span>
+                    </div>
+                  </div>
+                    </div>
+                  </div>
+                  
+              <div className="h-[500px] relative">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={zoomedData}
+                    margin={{
+                      top: 40,
+                      right: 30,
+                      left: 20,
+                      bottom: 20,
                     }}
                   >
-                    <Chart 
-                      type="line" 
-                      data={chartData} 
-                      options={chartOptions} 
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    
+                    {/* Eje superior para días */}
+                    <XAxis 
+                      xAxisId="top"
+                      dataKey="time" 
+                      orientation="top"
+                      stroke="#9CA3AF"
+                      fontSize={11}
+                      tick={{ fill: '#9CA3AF' }}
+                      tickFormatter={(value) => {
+                        // Buscar el punto de datos correspondiente en los datos actuales (zoomedData)
+                        const dataPoint = zoomedData.find(d => d.time === value)
+                        if (dataPoint && dataPoint.fullDateTime) {
+                          const date = new Date(dataPoint.fullDateTime)
+                          const currentDay = date.getDate()
+                          const currentMonth = date.getMonth()
+                          const currentYear = date.getFullYear()
+                          
+                          // Buscar el punto anterior para comparar
+                          const currentIndex = zoomedData.findIndex(d => d.time === value)
+                          if (currentIndex > 0) {
+                            const prevDataPoint = zoomedData[currentIndex - 1]
+                            if (prevDataPoint && prevDataPoint.fullDateTime) {
+                              const prevDate = new Date(prevDataPoint.fullDateTime)
+                              const prevDay = prevDate.getDate()
+                              const prevMonth = prevDate.getMonth()
+                              const prevYear = prevDate.getFullYear()
+                              
+                              // Solo mostrar fecha si cambió el día, mes o año
+                              if (currentDay !== prevDay || currentMonth !== prevMonth || currentYear !== prevYear) {
+                                return date.toLocaleDateString('es-ES', { 
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: '2-digit'
+                                })
+                              }
+                            } else {
+                              // Si es el primer punto, siempre mostrar la fecha
+                              return date.toLocaleDateString('es-ES', { 
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: '2-digit'
+                              })
+                            }
+                          } else {
+                            // Si es el primer punto de los datos visibles, mostrar la fecha
+                            return date.toLocaleDateString('es-ES', { 
+                              day: '2-digit',
+                              month: '2-digit',
+                              year: '2-digit'
+                            })
+                          }
+                        }
+                        return ''
+                      }}
+                      tickCount={Math.min(15, zoomedData.length)} // Más ticks para detectar cambios de fecha
                     />
-                  </div>
-                </div>
-                
-                {/* Paneles de leyenda */}
-                <div className="w-64 space-y-3">
-                  <div className="text-sm text-gray-300 font-medium mb-3">Detalles del Intervalo</div>
-                  
-                  {/* Estado */}
-                  <div className="bg-gray-600 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Estado</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-1 bg-green-500 rounded"></div>
-                      <span className="text-sm text-white">
-                        {selectedInterval?.navStatus ? 
-                          (parseFloat(selectedInterval.navStatus) === 0 ? 'Atracado/Parada' :
-                           parseFloat(selectedInterval.navStatus) === 1 ? 'Maniobrando' : 'Navegando') 
-                          : '--'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Actividad */}
-                  <div className="bg-gray-600 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Actividad</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-1 bg-purple-500 rounded"></div>
-                      <span className="text-sm text-white">
-                        {selectedInterval?.classificationType || '--'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Velocidad Media */}
-                  <div className="bg-gray-600 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Velocidad Media</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-1 bg-blue-500 rounded"></div>
-                      <span className="text-sm text-white">
-                        {selectedInterval?.avgSpeed ? `${selectedInterval.avgSpeed.toFixed(2)} kn` : '-- kn'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Duración */}
-                  <div className="bg-gray-600 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Duración</div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-1 bg-orange-500 rounded"></div>
-                      <span className="text-sm text-white">
-                        {selectedInterval?.duration || '--:--:--'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Hora Inicial */}
-                  <div className="bg-gray-600 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Hora Inicial</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">
-                        {selectedInterval?.startTime ? 
-                          new Date(selectedInterval.startTime).toLocaleTimeString('es-ES', { 
+                    
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      fontSize={12}
+                      tick={{ fill: '#9CA3AF' }}
+                      tickFormatter={(value) => {
+                        // Convertir a formato HH:MM sin segundos
+                        const date = new Date(`1970-01-01T${value}`)
+                        return date.toLocaleTimeString('es-ES', { 
                             hour: '2-digit', 
                             minute: '2-digit', 
                             hour12: false 
-                          }) : '--:--'}
-                      </span>
+                        })
+                      }}
+                    />
+                    <YAxis 
+                      yAxisId="left"
+                      stroke="#3B82F6"
+                      fontSize={12}
+                      tick={{ fill: '#3B82F6' }}
+                      label={{ 
+                        value: 'Velocidad (nudos)', 
+                        angle: -90, 
+                        position: 'insideLeft',
+                        style: { textAnchor: 'middle', fill: '#3B82F6' }
+                      }}
+                    />
+                    <YAxis 
+                      yAxisId="right"
+                      orientation="right"
+                      stroke="#10B981"
+                      fontSize={12}
+                      tick={{ fill: '#10B981' }}
+                      domain={[0, 2]}
+                      ticks={[0, 1, 2]}
+                      label={{ 
+                        value: 'Estado', 
+                        angle: 90, 
+                        position: 'insideRight',
+                        style: { textAnchor: 'middle', fill: '#10B981' }
+                      }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#1F2937',
+                        border: '1px solid #374151',
+                        borderRadius: '8px',
+                        color: '#FFFFFF'
+                      }}
+                      labelStyle={{ color: '#E5E7EB' }}
+                      formatter={(value: any, name: string) => {
+                        if (name === 'speed') {
+                          return [`${value.toFixed(2)} nudos`, 'Velocidad']
+                        } else if (name === 'stateValue') {
+                          const stateLabels: { [key: string]: string } = {
+                            '0.0': 'Atracado/Parada',
+                            '1.0': 'Maniobrando', 
+                            '2.0': 'Navegando'
+                          }
+                          return [stateLabels[value.toString()] || value, 'Estado']
+                        }
+                        return [value, name]
+                      }}
+                      labelFormatter={(label, payload) => {
+                        if (payload && payload[0]) {
+                          const data = payload[0].payload as SpeedDataPoint
+                          return (
+                            <div className="text-white">
+                              <div>Hora: {label}</div>
+                              <div>Trayecto: {data.journeyIndex}</div>
+                              <div>Intervalo: {data.intervalNumber}</div>
+                              <div>Actividad: {data.classificationType}</div>
+                              <div>Duración: {data.duration}</div>
                     </div>
-                  </div>
-                  
-                  {/* Hora Final */}
-                  <div className="bg-gray-600 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Hora Final</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">
-                        {selectedInterval?.endTime ? 
-                          new Date(selectedInterval.endTime).toLocaleTimeString('es-ES', { 
-                            hour: '2-digit', 
-                            minute: '2-digit', 
-                            hour12: false 
-                          }) : '--:--'}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Fecha */}
-                  <div className="bg-gray-600 rounded-lg p-3">
-                    <div className="text-xs text-gray-400 mb-1">Fecha</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-white">
-                        {selectedInterval?.startTime ? 
-                          new Date(selectedInterval.startTime).toLocaleDateString('es-ES', { 
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                          }) : '--'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                          )
+                        }
+                        return label
+                      }}
+                    />
+                    {showSpeedLine && (
+                      <Line 
+                        yAxisId="left"
+                        type="stepAfter" 
+                        dataKey="speed" 
+                        stroke="#3B82F6" 
+                        strokeWidth={3}
+                        dot={false}
+                        activeDot={false}
+                        name="Velocidad"
+                        isAnimationActive={false}
+                      />
+                    )}
+                    {showStateLine && (
+                      <Line 
+                        yAxisId="right"
+                        type="stepAfter" 
+                        dataKey="stateValue" 
+                        stroke="#10B981" 
+                        strokeWidth={3}
+                        dot={false}
+                        activeDot={false}
+                        name="Estado"
+                        isAnimationActive={false}
+                      />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
-          
-
 
           {/* Gráfico de quesos (pie chart) */}
           <div className="mb-6">
-            <div className="text-xl font-medium text-white mb-6">Distribución por sectores</div>
+            <div className="text-xl font-medium text-white mb-6">
+              Distribución por sectores
+              <span className="text-sm text-gray-400 ml-2">
+                ({selectedJourneys.size} trayecto{selectedJourneys.size > 1 ? 's' : ''} analizado{selectedJourneys.size > 1 ? 's' : ''})
+              </span>
+            </div>
             <div className="flex flex-col items-center gap-8">
               <div className="flex justify-center">
                 <PieChart data={sortedGroups} totalSeconds={totalSeconds} />
               </div>
-              <div className="w-full max-w-5xl">
+              <div className="w-full">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {sortedGroups.map(([classificationType, data], index) => {
                     const percentage = ((data.totalSeconds / totalSeconds) * 100).toFixed(1)
