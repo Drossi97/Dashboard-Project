@@ -304,75 +304,112 @@ export default function JourneySelector({
               const journeyColor = getJourneyColor(journey.index)
               
               return (
-                <button
+                <div
                   key={journey.index}
-                  onClick={() => onToggleJourney(journey.index)}
-                  className={`w-full text-left p-4 rounded-lg transition-all duration-200 border-2 ${
+                  className={`w-full rounded-lg transition-all duration-200 border-2 overflow-hidden ${
                     isSelected
                       ? 'bg-blue-600 text-white border-blue-500 shadow-lg'
                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600 hover:shadow-md'
                   }`}
                 >
-                  {/* Header del trayecto */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="w-4 h-4 rounded-full shadow-sm"
-                        style={{ backgroundColor: journeyColor }}
-                      />
-                      <div>
-                        <div className="font-semibold text-lg">
-                          Trayecto {journey.index}
-                        </div>
-                        <div className="text-sm font-medium" style={{ color: journey.isIncomplete ? '#FB923C' : '#E5E7EB' }}>
-                          {journey.endPort}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Badge de intervalos */}
-                    <div className="bg-gray-600 text-white text-xs px-2 py-1 rounded-full font-medium">
-                      {journey.intervalCount} intervalos
-                    </div>
-                  </div>
+                   {/* Encabezado prominente del trayecto */}
+                   <div 
+                     className={`px-4 py-3 border-b ${
+                       isSelected ? 'border-blue-500/30' : 'border-gray-600'
+                     }`}
+                     style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.2)' }}
+                   >
+                     <div className="flex items-center gap-3">
+                       <div 
+                         className="w-5 h-5 rounded-full shadow-sm border-2 border-white/20"
+                         style={{ backgroundColor: journeyColor }}
+                       />
+                       <div>
+                         <div className="font-bold text-lg">
+                           Trayecto {journey.index}
+                         </div>
+                         <div 
+                           className="text-sm font-medium" 
+                           style={{ color: journey.isIncomplete ? '#FB923C' : isSelected ? '#E5E7EB' : '#9CA3AF' }}
+                         >
+                           {journey.endPort}
+                         </div>
+                       </div>
+                     </div>
+                   </div>
                   
-                  {/* Información temporal agrupada */}
-                  <div className="bg-gray-800/50 rounded-lg p-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-xs text-gray-400 mb-1">Fecha</div>
-                        <div className="text-sm font-medium">{journey.startDate}</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400 mb-1">Duración</div>
-                        <div className="text-sm font-semibold text-blue-400">{journey.totalDuration}</div>
-                      </div>
-                    </div>
+                  {/* Contenido clickeable */}
+                  <button
+                    onClick={() => onToggleJourney(journey.index)}
+                    className="w-full text-left p-4 space-y-3"
+                  >
+                     {/* Información temporal organizada */}
+                     <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                           Fecha
+                         </div>
+                         <div className="text-sm font-medium">
+                           {journey.startDate}
+                         </div>
+                       </div>
+                       <div>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                           Intervalos
+                         </div>
+                         <div className="text-sm font-medium">
+                           {journey.intervalCount}
+                         </div>
+                       </div>
+                     </div>
+                     
+                     <div className="grid grid-cols-2 gap-4">
+                       <div>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                           Inicio
+                         </div>
+                         <div className="text-sm font-medium">
+                           {journey.startTime}
+                         </div>
+                       </div>
+                       <div>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                           Final
+                         </div>
+                         <div className="text-sm font-medium">
+                           {journey.endTime}
+                         </div>
+                       </div>
+                     </div>
+                     
+                     <div>
+                       <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                         Duración
+                       </div>
+                       <div className={`text-sm font-semibold ${isSelected ? 'text-blue-200' : 'text-blue-400'}`}>
+                         {journey.totalDuration}
+                       </div>
+                     </div>
                     
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="text-xs text-gray-400 mb-1">Inicio</div>
-                        <div className="text-sm font-medium">{journey.startTime}</div>
+                    {/* Advertencia de gaps */}
+                    {journey.hasGaps && (
+                      <div className={`mt-3 rounded-lg p-2 ${
+                        isSelected 
+                          ? 'bg-orange-500/30 border border-orange-400/50' 
+                          : 'bg-orange-500/20 border border-orange-500/30'
+                      }`}>
+                        <div className={`flex items-center gap-2 text-xs ${
+                          isSelected ? 'text-orange-200' : 'text-orange-300'
+                        }`}>
+                          <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          {journey.gapCount} gap{journey.gapCount > 1 ? 's' : ''} detectado{journey.gapCount > 1 ? 's' : ''}
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-xs text-gray-400 mb-1">Final</div>
-                        <div className="text-sm font-medium">{journey.endTime}</div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Advertencia de gaps */}
-                  {journey.hasGaps && (
-                    <div className="mt-3 bg-orange-500/20 border border-orange-500/30 rounded-lg p-2">
-                      <div className="flex items-center gap-2 text-orange-300 text-xs">
-                        <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                        {journey.gapCount} gap{journey.gapCount > 1 ? 's' : ''} detectado{journey.gapCount > 1 ? 's' : ''}
-                      </div>
-                    </div>
-                  )}
-                </button>
+                    )}
+                  </button>
+                </div>
               )
               })
             ) : (
