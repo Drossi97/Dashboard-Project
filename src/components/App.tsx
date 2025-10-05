@@ -1,0 +1,145 @@
+import React, { useState, useRef } from "react"
+import { useCSVprueba } from "../hooks/useCSVprueba"
+import { FileUploader } from "./FileUploader"
+import MapViewer, { MapViewerRef } from "./MapViewer"
+import JourneySelector from "./JourneySelector"
+import IntervalStats from "./IntervalStats"
+
+export default function App() {
+  const [files, setFiles] = useState<File[]>([])
+  const [showUploader, setShowUploader] = useState(true)
+  const [selectedJourneys, setSelectedJourneys] = useState<Set<number>>(new Set())
+  const [showStats, setShowStats] = useState(false)
+  
+  const csvProcessor = useCSVprueba()
+  const mapViewerRef = useRef<MapViewerRef>(null)
+
+  // Procesar archivos CSV
+  const handleProcessFiles = async () => {
+    if (files.length === 0 || csvProcessor.isProcessing) return
+
+    console.log('=== PROCESANDO ARCHIVOS CSV CON useCSVprueba ===')
+    
+    try {
+      const result = await csvProcessor.processFiles(files)
+      
+      if (result?.success && 'data' in result && result.data) {
+        console.log(`✅ Procesamiento completado: ${result.data.intervals.length} items`)
+        console.log('📊 Resultado completo:', result)
+        
+        // Ocultar el uploader después del procesamiento exitoso
+        setShowUploader(false)
+      } else {
+        console.error('❌ Error en el procesamiento:', result?.error)
+      }
+    } catch (error) {
+      console.error('Error procesando archivos:', error)
+    }
+  }
+
+  // Alternar selección de trayecto
+  const toggleJourneySelection = (journeyIndex: number) => {
+    console.log(`🔄 Alternando trayecto ${journeyIndex}`)
+    
+    const newSelectedJourneys = new Set(selectedJourneys)
+    if (newSelectedJourneys.has(journeyIndex)) {
+      newSelectedJourneys.delete(journeyIndex)
+    } else {
+      newSelectedJourneys.add(journeyIndex)
+    }
+    
+    setSelectedJourneys(newSelectedJourneys)
+    console.log(`✅ Trayectos seleccionados:`, Array.from(newSelectedJourneys))
+  }
+
+  // Seleccionar todos los trayectos
+  const selectAllJourneys = () => {
+    if (!csvProcessor.results?.data?.intervals) return
+    
+    // Extraer todos los journeyIndex únicos
+    const allJourneyIndexes = new Set<number>()
+    csvProcessor.results.data.intervals.forEach((item: any) => {
+      if (item.journeyIndex !== undefined && typeof item.journeyIndex === 'number') {
+        allJourneyIndexes.add(item.journeyIndex)
+      }
+    })
+    
+    setSelectedJourneys(allJourneyIndexes)
+    console.log(`✅ Todos los trayectos seleccionados:`, Array.from(allJourneyIndexes))
+  }
+
+  // Deseleccionar todos los trayectos
+  const deselectAllJourneys = () => {
+    setSelectedJourneys(new Set())
+    console.log(`✅ Todos los trayectos deseleccionados`)
+  }
+
+  // Reiniciar para cargar nuevos archivos
+  const resetForNewFiles = () => {
+    setFiles([])
+    setShowUploader(true)
+    setSelectedJourneys(new Set())
+    csvProcessor.clearResults()
+    mapViewerRef.current?.clearMap()
+  }
+
+  return (
+    <div className="relative h-screen w-screen overflow-hidden bg-white">
+      {/* Mapa */}
+      <MapViewer 
+        ref={mapViewerRef}
+        csvResults={csvProcessor.results}
+        selectedJourneys={selectedJourneys}
+      />
+
+      {/* Componente para subir CSV */}
+      {showUploader && (
+        <div className="fixed inset-0 flex items-center justify-center z-[9999] bg-black/30 backdrop-blur-sm">
+          <div className="w-full max-w-6xl mx-4">
+            <FileUploader
+              files={files}
+              onFilesChange={setFiles}
+              onProcessFiles={handleProcessFiles}
+              isProcessing={csvProcessor.isProcessing}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Botón para reiniciar */}
+      {!showUploader && (
+        <div className="absolute top-4 left-4 z-[9998]">
+          <button
+            onClick={resetForNewFiles}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-lg"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="font-medium">Cargar Nuevos Archivos</span>
+          </button>
+        </div>
+      )}
+
+      {/* Selector de trayectos - solo mostrar cuando no hay uploader */}
+      {!showUploader && (
+        <JourneySelector
+          csvResults={csvProcessor.results}
+          selectedJourneys={selectedJourneys}
+          onToggleJourney={toggleJourneySelection}
+          onShowStats={() => setShowStats(true)}
+          onSelectAll={selectAllJourneys}
+          onDeselectAll={deselectAllJourneys}
+        />
+      )}
+
+      {/* Estadísticas de intervalos - modal */}
+      <IntervalStats
+        csvResults={csvProcessor.results}
+        selectedJourneys={selectedJourneys}
+        isVisible={showStats}
+        onClose={() => setShowStats(false)}
+      />
+    </div>
+  )
+}
