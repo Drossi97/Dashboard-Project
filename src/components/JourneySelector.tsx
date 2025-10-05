@@ -268,32 +268,33 @@ export default function JourneySelector({
             </button>
           </div>
           
-          {/* Fila separada para el botón de seleccionar todos */}
+          {/* Checkbox para seleccionar todos */}
           {availableJourneys.length > 0 && (
             <div className="flex justify-end mb-3">
-              {selectedJourneys.size === availableJourneys.length ? (
-                <button
-                  onClick={onDeselectAll}
-                  className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-500 transition-colors"
-                  title="Deseleccionar todos los trayectos"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  Deseleccionar Todos
-                </button>
-              ) : (
-                <button
-                  onClick={onSelectAll}
-                  className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-500 transition-colors"
-                  title="Seleccionar todos los trayectos"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  Seleccionar Todos
-                </button>
-              )}
+              <label className="flex items-center gap-2 cursor-pointer transition-colors">
+                <span className="text-sm text-gray-300 select-none">
+                  {selectedJourneys.size === availableJourneys.length ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
+                </span>
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={selectedJourneys.size === availableJourneys.length}
+                    onChange={selectedJourneys.size === availableJourneys.length ? onDeselectAll : onSelectAll}
+                    className="sr-only"
+                  />
+                  <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
+                    selectedJourneys.size === availableJourneys.length
+                      ? 'bg-green-600 border-green-600'
+                      : 'bg-transparent border-gray-400 hover:border-gray-300'
+                  }`}>
+                    {selectedJourneys.size === availableJourneys.length && (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+              </label>
             </div>
           )}
           
@@ -304,49 +305,60 @@ export default function JourneySelector({
               const journeyColor = getJourneyColor(journey.index)
               
               return (
-                <div
-                  key={journey.index}
-                  className={`w-full rounded-lg transition-all duration-200 border-2 overflow-hidden ${
-                    isSelected
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-lg'
-                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600 hover:shadow-md'
-                  }`}
-                >
-                   {/* Encabezado prominente del trayecto */}
-                   <div 
-                     className={`px-4 py-3 border-b ${
-                       isSelected ? 'border-blue-500/30' : 'border-gray-600'
-                     }`}
+                 <div
+                   key={journey.index}
+                   className={`w-full rounded-lg transition-all duration-200 border-2 overflow-hidden ${
+                     isSelected
+                       ? 'bg-gray-700 text-white border-gray-500 shadow-lg'
+                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600 hover:shadow-md'
+                   }`}
+                 >
+                   {/* Encabezado clickeable del trayecto */}
+                   <button
+                     onClick={() => onToggleJourney(journey.index)}
+                     className={`w-full text-left px-4 py-3 border-b transition-colors border-gray-600`}
                      style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.2)' }}
                    >
-                     <div className="flex items-center gap-3">
-                       <div 
-                         className="w-5 h-5 rounded-full shadow-sm border-2 border-white/20"
-                         style={{ backgroundColor: journeyColor }}
-                       />
-                       <div>
-                         <div className="font-bold text-lg">
-                           Trayecto {journey.index}
-                         </div>
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center gap-3">
                          <div 
-                           className="text-sm font-medium" 
-                           style={{ color: journey.isIncomplete ? '#FB923C' : isSelected ? '#E5E7EB' : '#9CA3AF' }}
-                         >
-                           {journey.endPort}
+                           className="w-5 h-5 rounded-full shadow-sm border-2 border-white/20"
+                           style={{ backgroundColor: journeyColor }}
+                         />
+                         <div>
+                           <div className="font-bold text-lg">
+                             Trayecto {journey.index}
+                           </div>
+                           <div 
+                             className="text-sm font-medium" 
+                             style={{ color: journey.isIncomplete ? '#FB923C' : isSelected ? '#E5E7EB' : '#9CA3AF' }}
+                           >
+                             {journey.endPort}
+                           </div>
                          </div>
                        </div>
+                       
+                       {/* Checkbox visual para indicar selección */}
+                       <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
+                         isSelected
+                           ? 'bg-green-600 border-green-600'
+                           : 'bg-transparent border-gray-400'
+                       }`}>
+                         {isSelected && (
+                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                           </svg>
+                         )}
+                       </div>
                      </div>
-                   </div>
+                   </button>
                   
-                  {/* Contenido clickeable */}
-                  <button
-                    onClick={() => onToggleJourney(journey.index)}
-                    className="w-full text-left p-4 space-y-3"
-                  >
+                  {/* Contenido informativo */}
+                  <div className="p-4 space-y-3">
                      {/* Información temporal organizada */}
                      <div className="grid grid-cols-2 gap-4">
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
                            Fecha
                          </div>
                          <div className="text-sm font-medium">
@@ -354,7 +366,7 @@ export default function JourneySelector({
                          </div>
                        </div>
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
                            Intervalos
                          </div>
                          <div className="text-sm font-medium">
@@ -365,7 +377,7 @@ export default function JourneySelector({
                      
                      <div className="grid grid-cols-2 gap-4">
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
                            Inicio
                          </div>
                          <div className="text-sm font-medium">
@@ -373,7 +385,7 @@ export default function JourneySelector({
                          </div>
                        </div>
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
                            Final
                          </div>
                          <div className="text-sm font-medium">
@@ -383,10 +395,10 @@ export default function JourneySelector({
                      </div>
                      
                      <div>
-                       <div className={`text-xs mb-1 ${isSelected ? 'text-blue-200' : 'text-gray-400'}`}>
+                       <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
                          Duración
                        </div>
-                       <div className={`text-sm font-semibold ${isSelected ? 'text-blue-200' : 'text-blue-400'}`}>
+                       <div className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-blue-400'}`}>
                          {journey.totalDuration}
                        </div>
                      </div>
@@ -407,8 +419,8 @@ export default function JourneySelector({
                           {journey.gapCount} gap{journey.gapCount > 1 ? 's' : ''} detectado{journey.gapCount > 1 ? 's' : ''}
                         </div>
                       </div>
-                    )}
-                  </button>
+                     )}
+                   </div>
                 </div>
               )
               })
