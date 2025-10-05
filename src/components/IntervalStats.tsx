@@ -1,5 +1,5 @@
 import React from "react"
-import { CSVPruebaResult } from "../hooks/useCSVprueba"
+import { CSVIntervalResult } from "../hooks/useCSVInterval"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,7 +29,7 @@ ChartJS.register(
 )
 
 interface IntervalStatsProps {
-  csvResults: CSVPruebaResult | null
+  csvResults: CSVIntervalResult | null
   selectedJourneys: Set<number>
   isVisible: boolean
   onClose: () => void
@@ -71,7 +71,7 @@ const parseDurationToSeconds = (duration: string): number => {
 }
 
 // Función para extraer datos de intervalos
-const extractIntervalData = (csvResults: CSVPruebaResult | null, selectedJourneys: Set<number>): IntervalData[] => {
+const extractIntervalData = (csvResults: CSVIntervalResult | null, selectedJourneys: Set<number>): IntervalData[] => {
   if (!csvResults?.success || !csvResults.data?.intervals || selectedJourneys.size === 0) {
     return []
   }

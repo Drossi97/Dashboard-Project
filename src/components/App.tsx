@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react"
-import { useCSVprueba } from "../hooks/useCSVprueba"
+import { useCSVInterval } from "../hooks/useCSVInterval"
 import { FileUploader } from "./FileUploader"
 import MapViewer, { MapViewerRef } from "./MapViewer"
 import JourneySelector from "./JourneySelector"
@@ -11,7 +11,7 @@ export default function App() {
   const [selectedJourneys, setSelectedJourneys] = useState<Set<number>>(new Set())
   const [showStats, setShowStats] = useState(false)
   
-  const csvProcessor = useCSVprueba()
+  const csvProcessor = useCSVInterval()
   const mapViewerRef = useRef<MapViewerRef>(null)
 
   // Procesar archivos CSV

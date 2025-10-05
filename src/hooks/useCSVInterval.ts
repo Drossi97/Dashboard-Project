@@ -56,7 +56,7 @@ export interface SimpleInterval {
   coordinatePoints: CoordinatePoint[]
 }
 
-export interface CSVPruebaResult {
+export interface CSVIntervalResult {
   success: boolean
   data?: {
     intervals: SimpleInterval[]
@@ -476,10 +476,10 @@ const createSimpleInterval = (points: Array<{latitude: number | null, longitude:
   return interval
 }
 
-export function useCSVprueba() {
+export function useCSVInterval() {
   const csvConverter = useCSVConverter()
   const [isProcessing, setIsProcessing] = useState(false)
-  const [results, setResults] = useState<CSVPruebaResult | null>(null)
+  const [results, setResults] = useState<CSVIntervalResult | null>(null)
 
   const processFiles = async (files: File[], delimiter: string = ",") => {
     if (files.length === 0) {
@@ -491,7 +491,7 @@ export function useCSVprueba() {
     setResults(null)
 
     try {
-      // console.log('=== PROCESANDO ARCHIVOS CSV CON useCSVprueba - CREANDO INTERVALOS ===')
+      // console.log('=== PROCESANDO ARCHIVOS CSV CON useCSVInterval - CREANDO INTERVALOS ===')
       
       // Paso 1: Convertir CSV a JSON puro usando useCSVConverter
       // console.log('1. Convirtiendo CSV a JSON...')
@@ -639,7 +639,7 @@ export function useCSVprueba() {
       const uniqueJourneys = new Set(intervalsWithJourneys.map(i => i.journeyIndex)).size
       const incompleteJourneyCount = incompleteJourneys.size
 
-      const finalResult: CSVPruebaResult = {
+      const finalResult: CSVIntervalResult = {
         success: true,
         data: {
           intervals: intervalsWithSeparators,

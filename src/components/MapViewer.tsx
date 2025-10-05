@@ -1,45 +1,13 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from "react"
 import "../styles/map.css"
-import { CSVPruebaResult } from "../hooks/useCSVprueba"
+import { CSVIntervalResult } from "../hooks/useCSVInterval"
+import { getJourneyColor } from "../lib/colors"
 
 // Declarar tipos para Leaflet
 declare global {
   interface Window {
     L: any
   }
-}
-
-// Colores base para los trayectos
-const JOURNEY_BASE_COLORS = [
-  '#FF4444', // Rojo brillante
-  '#00AA44', // Verde oscuro
-  '#0066CC', // Azul oscuro
-  '#FF8800', // Naranja brillante
-  '#8800AA', // Morado oscuro
-  '#CC6600', // Marrón oscuro
-  '#00AAAA', // Cian oscuro
-  '#AA4400', // Rojo oscuro
-  '#0044AA', // Azul muy oscuro
-  '#AA0088'  // Magenta oscuro
-]
-
-// Función para generar colores específicos para cada intervalo
-const getIntervalColor = (journeyIndex: number, intervalIndex: number): string => {
-  const baseColor = JOURNEY_BASE_COLORS[journeyIndex % JOURNEY_BASE_COLORS.length]
-  
-  // Crear variaciones del color base para cada intervalo
-  const variations = [
-    baseColor, // Color base
-    adjustColorBrightness(baseColor, 0.7), // Más oscuro
-    adjustColorBrightness(baseColor, 1.3), // Más claro
-    adjustColorSaturation(baseColor, 0.8), // Menos saturado
-    adjustColorSaturation(baseColor, 1.2), // Más saturado
-    adjustColorHue(baseColor, 30), // Cambio de matiz
-    adjustColorHue(baseColor, -30), // Cambio de matiz opuesto
-    adjustColorBrightness(baseColor, 0.5), // Muy oscuro
-  ]
-  
-  return variations[intervalIndex % variations.length]
 }
 
 // Función para ajustar el brillo de un color
@@ -126,7 +94,7 @@ const adjustColorHue = (color: string, degrees: number): string => {
 }
 
 interface MapViewerProps {
-  csvResults: CSVPruebaResult | null
+  csvResults: CSVIntervalResult | null
   selectedJourneys: Set<number>
 }
 
@@ -136,7 +104,7 @@ export interface MapViewerRef {
 }
 
 // Función para extraer intervalos válidos desde los resultados de CSV
-const extractIntervalsFromResults = (csvResults: CSVPruebaResult | null) => {
+const extractIntervalsFromResults = (csvResults: CSVIntervalResult | null) => {
   try {
     if (!csvResults?.success || !csvResults.data?.intervals) {
       // console.log('❌ No hay resultados válidos o intervalos')
@@ -280,7 +248,7 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
         try {
           const intervalNumber = interval.intervalNumber
           const journeyIndex = interval.journeyIndex || intervalNumber // fallback
-          const intervalColor = getIntervalColor(journeyIndex, intervalIndex)
+          const intervalColor = getJourneyColor(journeyIndex)
 
           // console.log(`🗺️ Procesando intervalo ${intervalNumber} del trayecto ${journeyIndex}`)
 

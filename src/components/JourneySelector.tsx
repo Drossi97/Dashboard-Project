@@ -1,19 +1,6 @@
 import React from "react"
-import { CSVPruebaResult } from "../hooks/useCSVprueba"
-
-// Colores para los trayectos
-const JOURNEY_COLORS = [
-  '#FF4444', // Rojo brillante
-  '#00AA44', // Verde oscuro
-  '#0066CC', // Azul oscuro
-  '#FF8800', // Naranja brillante
-  '#8800AA', // Morado oscuro
-  '#CC6600', // Marrón oscuro
-  '#00AAAA', // Cian oscuro
-  '#AA4400', // Rojo oscuro
-  '#0044AA', // Azul muy oscuro
-  '#AA0088'  // Magenta oscuro
-]
+import { CSVIntervalResult } from "../hooks/useCSVInterval"
+import { getJourneyColor } from "../lib/colors"
 
 interface Journey {
   index: number
@@ -31,7 +18,7 @@ interface Journey {
 }
 
 interface JourneySelectorProps {
-  csvResults: CSVPruebaResult | null
+  csvResults: CSVIntervalResult | null
   selectedJourneys: Set<number>
   onToggleJourney: (journeyIndex: number) => void
   onShowStats: () => void
@@ -89,7 +76,7 @@ const formatDuration = (seconds: number): string => {
 }
 
 // Función para extraer información de trayectos desde los resultados de CSV
-const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey[] => {
+const extractJourneysFromResults = (csvResults: CSVIntervalResult | null): Journey[] => {
   
   if (!csvResults?.success || !csvResults.data?.intervals) {
     return []
@@ -314,7 +301,7 @@ export default function JourneySelector({
             {availableJourneys.length > 0 ? (
               availableJourneys.map((journey) => {
               const isSelected = selectedJourneys.has(journey.index)
-              const journeyColor = JOURNEY_COLORS[journey.index % JOURNEY_COLORS.length]
+              const journeyColor = getJourneyColor(journey.index)
               
               return (
                 <button
