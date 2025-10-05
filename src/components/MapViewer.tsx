@@ -139,13 +139,13 @@ export interface MapViewerRef {
 const extractIntervalsFromResults = (csvResults: CSVPruebaResult | null) => {
   try {
     if (!csvResults?.success || !csvResults.data?.intervals) {
-      console.log('❌ No hay resultados válidos o intervalos')
+      // console.log('❌ No hay resultados válidos o intervalos')
       return []
     }
 
     const intervals = csvResults.data.intervals
     if (!Array.isArray(intervals)) {
-      console.log('❌ Los intervalos no son un array:', intervals)
+      // console.log('❌ Los intervalos no son un array:', intervals)
       return []
     }
 
@@ -167,10 +167,10 @@ const extractIntervalsFromResults = (csvResults: CSVPruebaResult | null) => {
       return true
     })
 
-    console.log(`✅ Extraídos ${validIntervals.length} intervalos válidos de ${intervals.length} items`)
+    // console.log(`✅ Extraídos ${validIntervals.length} intervalos válidos de ${intervals.length} items`)
     return validIntervals
   } catch (error) {
-    console.error('❌ Error extrayendo intervalos:', error)
+    // console.error('❌ Error extrayendo intervalos:', error)
     return []
   }
 }
@@ -227,7 +227,7 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
     }).addTo(map)
 
     mapInstanceRef.current = map
-    console.log('🗺️ Mapa inicializado')
+    // console.log('🗺️ Mapa inicializado')
   }, [isMapLoaded])
 
   // Limpiar marcadores y polylines
@@ -249,7 +249,7 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
   // Mostrar trayectos seleccionados
   const showSelectedJourneys = (journeysToShow: Set<number>) => {
     if (!mapInstanceRef.current || !window.L) {
-      console.log('❌ Mapa o Leaflet no disponible')
+      // console.log('❌ Mapa o Leaflet no disponible')
       return
     }
 
@@ -260,21 +260,21 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
       const allIntervals = extractIntervalsFromResults(csvResults)
       
       if (!allIntervals || allIntervals.length === 0) {
-        console.log('❌ No hay intervalos disponibles')
+        // console.log('❌ No hay intervalos disponibles')
         return
       }
 
       const intervalsToShow = allIntervals.filter((interval: any) => {
         if (!interval || typeof interval.journeyIndex !== 'number') {
-          console.log('❌ Intervalo inválido:', interval)
+          // console.log('❌ Intervalo inválido:', interval)
           return false
         }
         // Usar journeyIndex para agrupar intervalos por trayecto
         return journeysToShow.has(interval.journeyIndex)
       })
 
-      console.log(`🗺️ Mostrando ${intervalsToShow.length} intervalos para trayectos:`, Array.from(journeysToShow))
-      console.log('🗺️ Intervalos a mostrar:', intervalsToShow)
+      // console.log(`🗺️ Mostrando ${intervalsToShow.length} intervalos para trayectos:`, Array.from(journeysToShow))
+      // console.log('🗺️ Intervalos a mostrar:', intervalsToShow)
 
       intervalsToShow.forEach((interval, intervalIndex) => {
         try {
@@ -282,7 +282,7 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
           const journeyIndex = interval.journeyIndex || intervalNumber // fallback
           const intervalColor = getIntervalColor(journeyIndex, intervalIndex)
 
-          console.log(`🗺️ Procesando intervalo ${intervalNumber} del trayecto ${journeyIndex}`)
+          // console.log(`🗺️ Procesando intervalo ${intervalNumber} del trayecto ${journeyIndex}`)
 
           // Crear marcador de inicio
           if (interval.startLat && interval.startLon && 
@@ -348,12 +348,12 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                 polyline.addTo(mapInstanceRef.current)
                 polylinesRef.current.push(polyline)
               } catch (error) {
-                console.error('Error creando polyline:', error)
+                // console.error('Error creando polyline:', error)
               }
             }
           }
         } catch (error) {
-          console.error(`❌ Error procesando intervalo ${intervalIndex + 1}:`, error)
+          // console.error(`❌ Error procesando intervalo ${intervalIndex + 1}:`, error)
         }
       })
 
@@ -363,11 +363,11 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
           const group = new L.featureGroup([...markersRef.current, ...polylinesRef.current])
           mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1))
         } catch (error) {
-          console.error('❌ Error ajustando vista del mapa:', error)
+          // console.error('❌ Error ajustando vista del mapa:', error)
         }
       }
     } catch (error) {
-      console.error('❌ Error en showSelectedJourneys:', error)
+      // console.error('❌ Error en showSelectedJourneys:', error)
     }
   }
 

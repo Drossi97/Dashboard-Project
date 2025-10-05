@@ -90,16 +90,13 @@ const formatDuration = (seconds: number): string => {
 
 // Función para extraer información de trayectos desde los resultados de CSV
 const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey[] => {
-  console.log('🚀 INICIO extractJourneysFromResults')
-  console.log('  - csvResults:', csvResults)
   
   if (!csvResults?.success || !csvResults.data?.intervals) {
-    console.log('❌ No hay resultados válidos - csvResults.success:', csvResults?.success, 'intervals:', !!csvResults?.data?.intervals)
     return []
   }
 
   const intervals = csvResults.data.intervals
-  console.log('📊 Total de items en intervals:', intervals.length)
+  // console.log('📊 Total de items en intervals:', intervals.length)
   
   const journeyMap = new Map<number, {
     intervals: any[]
@@ -108,22 +105,22 @@ const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey
     isIncomplete: boolean
   }>()
 
-  console.log('🔍 Procesando intervalos:', intervals.length)
+  // console.log('🔍 Procesando intervalos:', intervals.length)
 
   // Procesar intervalos y separadores
   intervals.forEach((item: any, index: number) => {
-    console.log(`🔍 Procesando item ${index}:`, {
-      separator: item.separator,
-      intervalNumber: item.intervalNumber,
-      journeyIndex: item.journeyIndex,
-      classificationType: item.classificationType,
-      isIncomplete: item.isIncomplete
-    })
+    // console.log(`🔍 Procesando item ${index}:`, {
+    //   separator: item.separator,
+    //   intervalNumber: item.intervalNumber,
+    //   journeyIndex: item.journeyIndex,
+    //   classificationType: item.classificationType,
+    //   isIncomplete: item.isIncomplete
+    // })
     
     if (item.separator) {
       // Es un separador con información del intervalo
       const journeyIndex = item.journeyIndex
-      console.log(`📋 Separador encontrado - Trayecto ${journeyIndex}, Clasificación: ${item.classificationType}, Incompleto: ${item.isIncomplete}`)
+      // console.log(`📋 Separador encontrado - Trayecto ${journeyIndex}, Clasificación: ${item.classificationType}, Incompleto: ${item.isIncomplete}`)
       
       if (!journeyMap.has(journeyIndex)) {
         journeyMap.set(journeyIndex, {
@@ -132,7 +129,7 @@ const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey
           gaps: 0,
           isIncomplete: item.isIncomplete || false
         })
-        console.log(`  ✅ Creado nuevo trayecto ${journeyIndex} (incompleto: ${item.isIncomplete})`)
+        // console.log(`  ✅ Creado nuevo trayecto ${journeyIndex} (incompleto: ${item.isIncomplete})`)
       }
       
       const journey = journeyMap.get(journeyIndex)!
@@ -146,7 +143,7 @@ const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey
       // Es un intervalo real - debe tener journeyIndex para agruparlo en el trayecto correcto
       const journeyIndex = item.journeyIndex
       if (!journeyIndex || typeof journeyIndex !== 'number') {
-        console.log('❌ Intervalo sin journeyIndex válido:', item)
+        // console.log('❌ Intervalo sin journeyIndex válido:', item)
         return
       }
       
@@ -158,22 +155,22 @@ const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey
           gaps: 0,
           isIncomplete: false // Se establecerá desde el separador
         })
-        console.log(`  ✅ Creado nuevo trayecto ${journeyIndex} para intervalo`)
+        // console.log(`  ✅ Creado nuevo trayecto ${journeyIndex} para intervalo`)
       }
       
       journeyMap.get(journeyIndex)!.intervals.push(item)
-      console.log(`  ✅ Agregado intervalo al trayecto ${journeyIndex}`)
+      // console.log(`  ✅ Agregado intervalo al trayecto ${journeyIndex}`)
     }
   })
 
-  console.log('🗺️ Trayectos encontrados:', Array.from(journeyMap.keys()))
+  // console.log('🗺️ Trayectos encontrados:', Array.from(journeyMap.keys()))
 
   // Convertir a array de Journey
   const journeys: Journey[] = []
-  journeyMap.forEach((data, journeyIndex) => {
+  journeyMap.forEach((data: any, journeyIndex: number) => {
     const intervals = data.intervals
     if (intervals.length === 0) {
-      console.log(`⚠️ Trayecto ${journeyIndex} sin intervalos`)
+      // console.log(`⚠️ Trayecto ${journeyIndex} sin intervalos`)
       return
     }
 
@@ -195,7 +192,7 @@ const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey
     const endTime = lastInterval.endTime ? new Date(lastInterval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''
     const totalDuration = calculateJourneyDuration(intervals)
 
-    console.log(`🚢 Trayecto ${journeyIndex}: ${displayRoute} (${intervals.length} intervalos)${isIncomplete ? ' - INCOMPLETO' : ''} [desde JSON]`)
+    // console.log(`🚢 Trayecto ${journeyIndex}: ${displayRoute} (${intervals.length} intervalos)${isIncomplete ? ' - INCOMPLETO' : ''} [desde JSON]`)
 
     journeys.push({
       index: journeyIndex,
@@ -214,7 +211,7 @@ const extractJourneysFromResults = (csvResults: CSVPruebaResult | null): Journey
   })
 
   const sortedJourneys = journeys.sort((a, b) => a.index - b.index)
-  console.log('✅ Trayectos finales:', sortedJourneys)
+  // console.log('✅ Trayectos finales:', sortedJourneys)
   return sortedJourneys
 }
 
@@ -228,39 +225,39 @@ export default function JourneySelector({
   onDeselectAll
 }: JourneySelectorProps) {
   
-  console.log('🎯 JourneySelector renderizado con:', { csvResults, selectedJourneys })
+  // console.log('🎯 JourneySelector renderizado con:', { csvResults, selectedJourneys })
   
   // Debug detallado de los datos recibidos
-  console.log('🔍 DEBUG JourneySelector:')
-  console.log('  - csvResults existe:', !!csvResults)
-  console.log('  - csvResults.success:', csvResults?.success)
-  console.log('  - csvResults.data existe:', !!csvResults?.data)
-  console.log('  - csvResults.data.intervals existe:', !!csvResults?.data?.intervals)
-  console.log('  - csvResults.data.intervals.length:', csvResults?.data?.intervals?.length)
+  // console.log('🔍 DEBUG JourneySelector:')
+  // console.log('  - csvResults existe:', !!csvResults)
+  // console.log('  - csvResults.success:', csvResults?.success)
+  // console.log('  - csvResults.data existe:', !!csvResults?.data)
+  // console.log('  - csvResults.data.intervals existe:', !!csvResults?.data?.intervals)
+  // console.log('  - csvResults.data.intervals.length:', csvResults?.data?.intervals?.length)
   
   if (csvResults?.data?.intervals && csvResults.data.intervals.length > 0) {
-    console.log('  - Primeros 3 items de intervals:')
+    // console.log('  - Primeros 3 items de intervals:')
     csvResults.data.intervals.slice(0, 3).forEach((item: any, index: number) => {
-      console.log(`    [${index}]:`, {
-        separator: item.separator,
-        intervalNumber: item.intervalNumber,
-        journeyIndex: item.journeyIndex,
-        classificationType: item.classificationType,
-        isIncomplete: item.isIncomplete
-      })
+      // console.log(`    [${index}]:`, {
+      //   separator: item.separator,
+      //   intervalNumber: item.intervalNumber,
+      //   journeyIndex: item.journeyIndex,
+      //   classificationType: item.classificationType,
+      //   isIncomplete: item.isIncomplete
+      // })
     })
   }
   
   // Mostrar información del resumen si está disponible
   if (csvResults?.data?.summary) {
-    console.log('  - Resumen del procesamiento:')
-    console.log(`    - Total trayectos: ${csvResults.data.summary.totalJourneys}`)
-    console.log(`    - Trayectos incompletos: ${csvResults.data.summary.incompleteJourneys}`)
+    // console.log('  - Resumen del procesamiento:')
+    // console.log(`    - Total trayectos: ${csvResults.data.summary.totalJourneys}`)
+    // console.log(`    - Trayectos incompletos: ${csvResults.data.summary.incompleteJourneys}`)
   }
   
   const availableJourneys = extractJourneysFromResults(csvResults)
   
-  console.log('JourneySelector - availableJourneys:', availableJourneys)
+  // console.log('JourneySelector - availableJourneys:', availableJourneys)
   
   // if (availableJourneys.length === 0) {
   //   return null

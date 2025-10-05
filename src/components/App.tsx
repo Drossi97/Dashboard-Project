@@ -18,28 +18,24 @@ export default function App() {
   const handleProcessFiles = async () => {
     if (files.length === 0 || csvProcessor.isProcessing) return
 
-    console.log('=== PROCESANDO ARCHIVOS CSV CON useCSVprueba ===')
     
     try {
       const result = await csvProcessor.processFiles(files)
       
       if (result?.success && 'data' in result && result.data) {
-        console.log(`✅ Procesamiento completado: ${result.data.intervals.length} items`)
-        console.log('📊 Resultado completo:', result)
         
         // Ocultar el uploader después del procesamiento exitoso
         setShowUploader(false)
       } else {
-        console.error('❌ Error en el procesamiento:', result?.error)
+        // console.error('❌ Error en el procesamiento:', result?.error)
       }
     } catch (error) {
-      console.error('Error procesando archivos:', error)
+      // console.error('Error procesando archivos:', error)
     }
   }
 
   // Alternar selección de trayecto
   const toggleJourneySelection = (journeyIndex: number) => {
-    console.log(`🔄 Alternando trayecto ${journeyIndex}`)
     
     const newSelectedJourneys = new Set(selectedJourneys)
     if (newSelectedJourneys.has(journeyIndex)) {
@@ -49,7 +45,6 @@ export default function App() {
     }
     
     setSelectedJourneys(newSelectedJourneys)
-    console.log(`✅ Trayectos seleccionados:`, Array.from(newSelectedJourneys))
   }
 
   // Seleccionar todos los trayectos
@@ -65,13 +60,11 @@ export default function App() {
     })
     
     setSelectedJourneys(allJourneyIndexes)
-    console.log(`✅ Todos los trayectos seleccionados:`, Array.from(allJourneyIndexes))
   }
 
   // Deseleccionar todos los trayectos
   const deselectAllJourneys = () => {
     setSelectedJourneys(new Set())
-    console.log(`✅ Todos los trayectos deseleccionados`)
   }
 
   // Reiniciar para cargar nuevos archivos

@@ -295,7 +295,7 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
         
         // Si hay un gap, incrementar el journeyIndex para crear un nuevo trayecto
         currentJourneyIndex++
-        console.log(`🔍 Gap detectado entre intervalos: ${gap.gapReason} (${gap.gapDuration}) - Nuevo trayecto ${currentJourneyIndex}`)
+        // console.log(`🔍 Gap detectado entre intervalos: ${gap.gapReason} (${gap.gapDuration}) - Nuevo trayecto ${currentJourneyIndex}`)
       }
     }
     
@@ -306,7 +306,7 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
     if (isFirstJourney) {
       // El primer trayecto siempre comienza desde el primer intervalo (inicio incompleto)
       isFirstJourney = false
-      console.log(`🚢 Trayecto ${currentJourneyIndex}: Inicio incompleto`)
+      // console.log(`🚢 Trayecto ${currentJourneyIndex}: Inicio incompleto`)
       
         // Si el primer intervalo está atracado, el siguiente trayecto comenzará en el próximo que esté atracado en un puerto diferente
         if (isAtracadoStart) {
@@ -317,7 +317,7 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
             const nextPort = nextInterval.classificationType.replace("Atracado en ", "")
             if (currentPort !== nextPort) {
               currentJourneyIndex++
-              console.log(`🚢 Trayecto ${currentJourneyIndex}: ${currentPort} → ${nextPort}`)
+              // console.log(`🚢 Trayecto ${currentJourneyIndex}: ${currentPort} → ${nextPort}`)
             }
           }
         }
@@ -337,7 +337,7 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
               const prevPort = prevInterval.classificationType.replace("Atracado en ", "")
               if (currentPort !== prevPort) {
                 currentJourneyIndex++
-                console.log(`🚢 Trayecto ${currentJourneyIndex}: ${prevPort} → ${currentPort}`)
+                // console.log(`🚢 Trayecto ${currentJourneyIndex}: ${prevPort} → ${currentPort}`)
               }
               break
             }
@@ -347,7 +347,7 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
           // Por lo tanto, este debe ser un nuevo trayecto
           if (!foundPreviousAtracado) {
                 currentJourneyIndex++
-                console.log(`🚢 Trayecto ${currentJourneyIndex}: Nuevo trayecto después de trayecto incompleto`)
+                // console.log(`🚢 Trayecto ${currentJourneyIndex}: Nuevo trayecto después de trayecto incompleto`)
           }
         }
       }
@@ -365,7 +365,7 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
   // Marcar el último trayecto como incompleto si no termina en un puerto
   const lastInterval = updatedIntervals[updatedIntervals.length - 1]
   if (lastInterval && !lastInterval.classificationType.startsWith("Atracado en")) {
-    console.log(`🚢 Trayecto ${lastInterval.journeyIndex}: Final incompleto`)
+    // console.log(`🚢 Trayecto ${lastInterval.journeyIndex}: Final incompleto`)
   }
   
   // Verificar trayectos incompletos en el medio (que no terminan en puerto)
@@ -401,7 +401,7 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
         const nextInterval = updatedIntervals[i]
         if (nextInterval.classificationType.startsWith("Atracado en")) {
           hasAtracadoAfter = true
-          console.log(`🚢 Trayecto ${journeyIndex}: Finalizado (siguiente intervalo atracado en ${nextInterval.classificationType.replace("Atracado en ", "")})`)
+          // console.log(`🚢 Trayecto ${journeyIndex}: Finalizado (siguiente intervalo atracado en ${nextInterval.classificationType.replace("Atracado en ", "")})`)
           break
         }
       }
@@ -413,13 +413,13 @@ const assignJourneyIndexes = (intervals: SimpleInterval[]): { intervals: SimpleI
       if (!hasAtracadoAfter || !hasValidPorts || isCircularJourney) {
         incompleteJourneys.add(journeyIndex)
         if (!hasAtracadoAfter) {
-          console.log(`🚢 Trayecto ${journeyIndex}: Trayecto incompleto (no hay intervalo atracado que lo siga)`)
+          // console.log(`🚢 Trayecto ${journeyIndex}: Trayecto incompleto (no hay intervalo atracado que lo siga)`)
         }
         if (!hasValidPorts) {
-          console.log(`🚢 Trayecto ${journeyIndex}: Trayecto incompleto (puertos inválidos: ${startPort} → ${endPort})`)
+          // console.log(`🚢 Trayecto ${journeyIndex}: Trayecto incompleto (puertos inválidos: ${startPort} → ${endPort})`)
         }
         if (isCircularJourney) {
-          console.log(`🚢 Trayecto ${journeyIndex}: Trayecto incompleto (trayecto circular: ${startPort} → ${endPort} - información incompleta)`)
+          // console.log(`🚢 Trayecto ${journeyIndex}: Trayecto incompleto (trayecto circular: ${startPort} → ${endPort} - información incompleta)`)
         }
       }
     }
@@ -491,10 +491,10 @@ export function useCSVprueba() {
     setResults(null)
 
     try {
-      console.log('=== PROCESANDO ARCHIVOS CSV CON useCSVprueba - CREANDO INTERVALOS ===')
+      // console.log('=== PROCESANDO ARCHIVOS CSV CON useCSVprueba - CREANDO INTERVALOS ===')
       
       // Paso 1: Convertir CSV a JSON puro usando useCSVConverter
-      console.log('1. Convirtiendo CSV a JSON...')
+      // console.log('1. Convirtiendo CSV a JSON...')
       const csvResult = await csvConverter.processFiles(files, delimiter)
       
       if (!csvResult?.success || !('data' in csvResult) || !csvResult.data) {
@@ -512,10 +512,10 @@ export function useCSVprueba() {
         return errorResult
       }
 
-      console.log(`✅ CSV convertido: ${csvResult.data.length} filas`)
+      // console.log(`✅ CSV convertido: ${csvResult.data.length} filas`)
       
       // Paso 2: Crear intervalos basándose en navStatus y detectar gaps en datos raw
-      console.log('2. Creando intervalos basándose en navStatus y detectando gaps...')
+      // console.log('2. Creando intervalos basándose en navStatus y detectando gaps...')
       const rawData = csvResult.data
       
       if (!rawData || rawData.length === 0) {
@@ -545,7 +545,7 @@ export function useCSVprueba() {
           const gapInfo = detectGap(currentTime, lastTimestamp)
           if (gapInfo.hasGap) {
             hasGapInRawData = true
-            console.log(`🔍 Gap detectado en datos raw: ${gapInfo.gapReason} (${gapInfo.gapDuration}) en fila ${i}`)
+            // console.log(`🔍 Gap detectado en datos raw: ${gapInfo.gapReason} (${gapInfo.gapDuration}) en fila ${i}`)
           }
         }
 
@@ -596,7 +596,7 @@ export function useCSVprueba() {
       }
 
       // Asignar índices de trayecto
-      console.log('3. Asignando índices de trayecto...')
+      // console.log('3. Asignando índices de trayecto...')
       const { intervals: intervalsWithJourneys, gapInfo, incompleteJourneys } = assignJourneyIndexes(intervals)
 
       // Crear estructura con marcas de separación entre intervalos
@@ -660,11 +660,11 @@ export function useCSVprueba() {
       }
 
       setResults(finalResult)
-      console.log(`✅ Procesamiento completado: ${intervals.length} intervalos, ${uniqueJourneys} trayectos (${incompleteJourneyCount} incompletos)`)
+      // console.log(`✅ Procesamiento completado: ${intervals.length} intervalos, ${uniqueJourneys} trayectos (${incompleteJourneyCount} incompletos)`)
       return finalResult
 
     } catch (error) {
-      console.error('Error procesando archivos:', error)
+      // console.error('Error procesando archivos:', error)
       const errorResult = {
         success: false,
         error: error instanceof Error ? error.message : "Error desconocido",
