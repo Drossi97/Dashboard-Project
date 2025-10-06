@@ -107,13 +107,11 @@ export interface MapViewerRef {
 const extractIntervalsFromResults = (csvResults: CSVIntervalResult | null) => {
   try {
     if (!csvResults?.success || !csvResults.data?.intervals) {
-      // console.log('❌ No hay resultados válidos o intervalos')
       return []
     }
 
     const intervals = csvResults.data.intervals
     if (!Array.isArray(intervals)) {
-      // console.log('❌ Los intervalos no son un array:', intervals)
       return []
     }
 
@@ -135,10 +133,8 @@ const extractIntervalsFromResults = (csvResults: CSVIntervalResult | null) => {
       return true
     })
 
-    // console.log(`✅ Extraídos ${validIntervals.length} intervalos válidos de ${intervals.length} items`)
     return validIntervals
   } catch (error) {
-    // console.error('❌ Error extrayendo intervalos:', error)
     return []
   }
 }
@@ -191,13 +187,63 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
       mapContainer.style.zIndex = '1'
     }
 
-    // Agregar capa de tiles
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+    // Agregar capa de tiles - Mapa con colores para la tierra
+    // Opción 1: CartoDB Positron (muy limpio, minimalista)
+    // L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    //   attribution: '© OpenStreetMap contributors © CARTO',
+    //   subdomains: 'abcd',
+    //   maxZoom: 19
+    // }).addTo(map)
+
+    // Opciones alternativas (descomenta la que prefieras):
+    
+    // Opción 2: CartoDB Voyager (limpio con colores suaves para la tierra) ⭐ ACTIVO
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap contributors © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 19
     }).addTo(map)
 
+    // Opción 3: Stamen Toner Lite (blanco y negro, muy limpio)
+    // L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}{r}.png', {
+    //   attribution: 'Map tiles by Stamen Design, CC BY 3.0 — Map data © OpenStreetMap contributors',
+    //   subdomains: 'abcd',
+    //   maxZoom: 20
+    // }).addTo(map)
+
+    // Opción 4: Mapbox Light (muy profesional, requiere API key)
+    // L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/light-v10/tiles/{z}/{x}/{y}?access_token=TU_API_KEY', {
+    //   attribution: '© Mapbox © OpenStreetMap contributors',
+    //   maxZoom: 20
+    // }).addTo(map)
+
+    // Opción 5: Esri World Street Map (limpio y profesional)
+    // L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+    //   attribution: 'Tiles © Esri — Source: Esri, DeLorme, NAVTEQ, USGS, Intermap, iPC, NRCAN, Esri Japan, METI, Esri China (Hong Kong), Esri (Thailand), TomTom, 2012',
+    //   maxZoom: 19
+    // }).addTo(map)
+
+    // Opción 6: Stamen Terrain (colores naturales para la tierra)
+    // L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png', {
+    //   attribution: 'Map tiles by Stamen Design, CC BY 3.0 — Map data © OpenStreetMap contributors',
+    //   subdomains: 'abcd',
+    //   maxZoom: 18
+    // }).addTo(map)
+
+    // Opción 7: CartoDB Dark Matter (oscuro pero con colores)
+    // L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    //   attribution: '© OpenStreetMap contributors © CARTO',
+    //   subdomains: 'abcd',
+    //   maxZoom: 19
+    // }).addTo(map)
+
+    // Opción 8: OpenTopoMap (colores naturales y topográficos)
+    // L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    //   attribution: 'Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap (CC-BY-SA)',
+    //   maxZoom: 17
+    // }).addTo(map)
+
     mapInstanceRef.current = map
-    // console.log('🗺️ Mapa inicializado')
   }, [isMapLoaded])
 
   // Limpiar marcadores y polylines
@@ -219,7 +265,6 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
   // Mostrar trayectos seleccionados
   const showSelectedJourneys = (journeysToShow: Set<number>) => {
     if (!mapInstanceRef.current || !window.L) {
-      // console.log('❌ Mapa o Leaflet no disponible')
       return
     }
 
@@ -230,21 +275,17 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
       const allIntervals = extractIntervalsFromResults(csvResults)
       
       if (!allIntervals || allIntervals.length === 0) {
-        // console.log('❌ No hay intervalos disponibles')
         return
       }
 
       const intervalsToShow = allIntervals.filter((interval: any) => {
         if (!interval || typeof interval.journeyIndex !== 'number') {
-          // console.log('❌ Intervalo inválido:', interval)
           return false
         }
         // Usar journeyIndex para agrupar intervalos por trayecto
         return journeysToShow.has(interval.journeyIndex)
       })
 
-      // console.log(`🗺️ Mostrando ${intervalsToShow.length} intervalos para trayectos:`, Array.from(journeysToShow))
-      // console.log('🗺️ Intervalos a mostrar:', intervalsToShow)
 
       intervalsToShow.forEach((interval, intervalIndex) => {
         try {
@@ -252,7 +293,6 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
           const journeyIndex = interval.journeyIndex || intervalNumber // fallback
           const intervalColor = getJourneyColor(journeyIndex)
 
-          // console.log(`🗺️ Procesando intervalo ${intervalNumber} del trayecto ${journeyIndex}`)
 
           // Crear marcador de inicio
           if (interval.startLat && interval.startLon && 
@@ -266,16 +306,35 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
               })
             })
 
+            // Crear el contenido del popup con la misma estructura que IntervalStats
+            const startTime = interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
+            const endTime = interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
+            const date = interval.startTime ? new Date(interval.startTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'N/A'
+            const navStatusValue = parseFloat(interval.navStatus || '0.0')
+            
             startMarker.bindPopup(`
-              <div style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.4;">
-                <strong>Trayecto ${journeyIndex}</strong><br/>
-                <strong>Intervalo:</strong> ${intervalIndex + 1}<br/>
-                <strong>Fecha:</strong> ${interval.startTime ? new Date(interval.startTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}<br/>
-                <strong>Inicio:</strong> ${interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}<br/>
-                <strong>Final:</strong> ${interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}<br/>
-                <strong>Estado:</strong> ${interval.classificationType || 'N/A'}<br/>
-                <strong>Velocidad media:</strong> ${interval.avgSpeed?.toFixed(1) || 'N/A'} km/h<br/>
-                <strong>Duración:</strong> ${interval.duration}
+              <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #000000; background-color: #FFFFFF; border: 1px solid #374151; border-radius: 8px; padding: 12px;">
+                <!-- Datos de los ejes (prioridad) -->
+                <div style="border-bottom: 1px solid #374151; padding-bottom: 10px; margin-bottom: 10px;">
+                  <div style="color: #3B82F6; font-weight: bold; font-size: 15px;">Velocidad: ${interval.avgSpeed?.toFixed(2) || 'N/A'} nudos</div>
+                  <div style="color: #10B981; font-weight: bold; font-size: 15px;">Estado: ${navStatusValue}</div>
+                  <div style="color: #000000; font-size: 14px;">Hora: ${startTime}</div>
+                  <div style="color: #000000; font-size: 14px;">Día: ${date}</div>
+                </div>
+                
+                <!-- Datos del intervalo -->
+                <div style="font-size: 13px;">
+                  <div style="display: flex; gap: 16px;">
+                    <span><span style="color: #000000; font-weight: 500;">Trayecto:</span> <span style="color: #6B7280;">${journeyIndex}</span></span>
+                    <span><span style="color: #000000; font-weight: 500;">Intervalo:</span> <span style="color: #6B7280;">${interval.intervalNumber}</span></span>
+                  </div>
+                  <div style="margin-top: 6px;"><span style="color: #000000; font-weight: 500;">Actividad:</span> <span style="color: #6B7280;">${interval.classificationType || 'N/A'}</span></div>
+                  <div style="margin-top: 10px;">
+                    <div style="margin-bottom: 4px;"><span style="color: #000000; font-weight: 500;">Hora de comienzo:</span> <span style="color: #6B7280;">${startTime}</span></div>
+                    <div style="margin-bottom: 4px;"><span style="color: #000000; font-weight: 500;">Hora de finalización:</span> <span style="color: #6B7280;">${endTime}</span></div>
+                    <div><span style="color: #000000; font-weight: 500;">Duración:</span> <span style="color: #6B7280;">${interval.duration || 'N/A'}</span></div>
+                  </div>
+                </div>
               </div>
             `)
 
@@ -302,28 +361,45 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                   smoothFactor: 1
                 })
 
+                // Crear el contenido del popup con la misma estructura que IntervalStats
+                const startTime = interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
+                const endTime = interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
+                const date = interval.startTime ? new Date(interval.startTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'N/A'
+                const navStatusValue = parseFloat(interval.navStatus || '0.0')
+                
                 polyline.bindPopup(`
-                  <div style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.4;">
-                    <strong>Trayecto ${journeyIndex}</strong><br/>
-                    <strong>Intervalo:</strong> ${intervalIndex + 1}<br/>
-                    <strong>Fecha:</strong> ${interval.startTime ? new Date(interval.startTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A'}<br/>
-                    <strong>Inicio:</strong> ${interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}<br/>
-                    <strong>Final:</strong> ${interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'}<br/>
-                    <strong>Estado:</strong> ${interval.classificationType || 'N/A'}<br/>
-                    <strong>Velocidad media:</strong> ${interval.avgSpeed?.toFixed(1) || 'N/A'} km/h<br/>
-                    <strong>Duración:</strong> ${interval.duration}
+                  <div style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.5; color: #000000; background-color: #FFFFFF; border: 1px solid #374151; border-radius: 8px; padding: 12px;">
+                    <!-- Datos de los ejes (prioridad) -->
+                    <div style="border-bottom: 1px solid #374151; padding-bottom: 10px; margin-bottom: 10px;">
+                      <div style="color: #3B82F6; font-weight: bold; font-size: 15px;">Velocidad: ${interval.avgSpeed?.toFixed(2) || 'N/A'} nudos</div>
+                      <div style="color: #10B981; font-weight: bold; font-size: 15px;">Estado: ${navStatusValue}</div>
+                      <div style="color: #000000; font-size: 14px;">Hora: ${startTime}</div>
+                      <div style="color: #000000; font-size: 14px;">Día: ${date}</div>
+                    </div>
+                    
+                    <!-- Datos del intervalo -->
+                    <div style="font-size: 13px;">
+                      <div style="display: flex; gap: 16px;">
+                        <span><span style="color: #000000; font-weight: 500;">Trayecto:</span> <span style="color: #6B7280;">${journeyIndex}</span></span>
+                        <span><span style="color: #000000; font-weight: 500;">Intervalo:</span> <span style="color: #6B7280;">${interval.intervalNumber}</span></span>
+                      </div>
+                      <div style="margin-top: 6px;"><span style="color: #000000; font-weight: 500;">Actividad:</span> <span style="color: #6B7280;">${interval.classificationType || 'N/A'}</span></div>
+                      <div style="margin-top: 10px;">
+                        <div style="margin-bottom: 4px;"><span style="color: #000000; font-weight: 500;">Hora de comienzo:</span> <span style="color: #6B7280;">${startTime}</span></div>
+                        <div style="margin-bottom: 4px;"><span style="color: #000000; font-weight: 500;">Hora de finalización:</span> <span style="color: #6B7280;">${endTime}</span></div>
+                        <div><span style="color: #000000; font-weight: 500;">Duración:</span> <span style="color: #6B7280;">${interval.duration || 'N/A'}</span></div>
+                      </div>
+                    </div>
                   </div>
                 `)
 
                 polyline.addTo(mapInstanceRef.current)
                 polylinesRef.current.push(polyline)
               } catch (error) {
-                // console.error('Error creando polyline:', error)
               }
             }
           }
         } catch (error) {
-          // console.error(`❌ Error procesando intervalo ${intervalIndex + 1}:`, error)
         }
       })
 
@@ -333,11 +409,9 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
           const group = new L.featureGroup([...markersRef.current, ...polylinesRef.current])
           mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1))
         } catch (error) {
-          // console.error('❌ Error ajustando vista del mapa:', error)
         }
       }
     } catch (error) {
-      // console.error('❌ Error en showSelectedJourneys:', error)
     }
   }
 

@@ -108,7 +108,7 @@ export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessin
 
             {/* Zona de arrastre de archivos */}
             <div
-              className={`w-full h-64 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 relative group ${
+              className={`w-full h-48 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer transition-all duration-300 relative group ${
                 isDragOver
                   ? 'border-blue-400 bg-blue-500/20 scale-105 shadow-lg shadow-blue-500/20'
                   : 'border-gray-400 hover:border-blue-400 hover:bg-gray-700/40 hover:scale-102 hover:shadow-lg hover:shadow-gray-500/10'
@@ -129,15 +129,15 @@ export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessin
               className="hidden"
             />
 
-              <div className="flex flex-col items-center space-y-4">
+              <div className="flex flex-col items-center space-y-3">
                 <div
-                  className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
+                  className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${
                     isDragOver 
                       ? 'bg-blue-500 scale-110' 
                       : 'bg-gradient-to-br from-blue-600 to-blue-700 group-hover:from-blue-500 group-hover:to-blue-600'
                   }`}
                 >
-                  <FileText className={`h-8 w-8 transition-colors duration-300 ${
+                  <FileText className={`h-7 w-7 transition-colors duration-300 ${
                     isDragOver ? 'text-white' : 'text-blue-100'
                   }`} />
                 </div>
@@ -172,22 +172,28 @@ export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessin
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-white font-semibold text-base">Archivos seleccionados</Label>
-                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
+                  <span className="text-white text-xs font-medium">
                     {files.length} archivo{files.length !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <div className="space-y-3 max-h-40 overflow-y-auto">
+                <div 
+                  className="space-y-2 max-h-40 overflow-y-auto"
+                  style={{ 
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: '#6B7280 transparent'
+                  }}
+                >
                   {files.map((file, index) => (
                     <div
                       key={`${file.name}-${index}`}
-                      className="w-full flex items-center justify-between gap-3 p-4 rounded-xl transition-all duration-200 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-500/40 hover:border-gray-400/60 shadow-sm hover:shadow-md"
+                      className="w-full flex items-center justify-between gap-2 p-3 rounded-lg transition-all duration-200 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-500/40 hover:border-gray-400/60 shadow-sm hover:shadow-md"
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
-                          <FileText className="h-4 w-4 text-blue-400" />
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div className="w-6 h-6 rounded bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-3 w-3 text-blue-400" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm text-white font-medium truncate block" title={file.name}>
+                          <span className="text-xs text-white font-medium truncate block" title={file.name}>
                             {file.name}
                           </span>
                           <span className="text-xs text-gray-400">
@@ -214,7 +220,7 @@ export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessin
             <button
               onClick={onProcessFiles}
               disabled={files.length === 0 || isProcessing}
-              className={`px-10 py-4 text-lg font-semibold rounded-xl transition-all duration-300 relative group ${
+              className={`px-6 py-3 text-base font-semibold rounded-xl transition-all duration-300 relative group ${
                 files.length === 0 || isProcessing
                   ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white shadow-lg hover:shadow-xl'

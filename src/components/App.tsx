@@ -27,10 +27,8 @@ export default function App() {
         // Ocultar el uploader después del procesamiento exitoso
         setShowUploader(false)
       } else {
-        // console.error('❌ Error en el procesamiento:', result?.error)
       }
     } catch (error) {
-      // console.error('Error procesando archivos:', error)
     }
   }
 

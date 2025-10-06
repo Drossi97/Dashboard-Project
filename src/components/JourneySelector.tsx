@@ -10,6 +10,7 @@ interface Journey {
   classificationTypes: string[]
   hasGaps: boolean
   gapCount: number
+  gapDurations: string[]
   isIncomplete: boolean
   startDate: string
   startTime: string
@@ -83,46 +84,39 @@ const extractJourneysFromResults = (csvResults: CSVIntervalResult | null): Journ
   }
 
   const intervals = csvResults.data.intervals
-  // console.log('📊 Total de items en intervals:', intervals.length)
   
   const journeyMap = new Map<number, {
     intervals: any[]
     classificationTypes: Set<string>
     gaps: number
+    gapDurations: string[]
     isIncomplete: boolean
   }>()
 
-  // console.log('🔍 Procesando intervalos:', intervals.length)
-
   // Procesar intervalos y separadores
   intervals.forEach((item: any, index: number) => {
-    // console.log(`🔍 Procesando item ${index}:`, {
-    //   separator: item.separator,
-    //   intervalNumber: item.intervalNumber,
-    //   journeyIndex: item.journeyIndex,
-    //   classificationType: item.classificationType,
-    //   isIncomplete: item.isIncomplete
-    // })
     
     if (item.separator) {
       // Es un separador con información del intervalo
       const journeyIndex = item.journeyIndex
-      // console.log(`📋 Separador encontrado - Trayecto ${journeyIndex}, Clasificación: ${item.classificationType}, Incompleto: ${item.isIncomplete}`)
       
       if (!journeyMap.has(journeyIndex)) {
         journeyMap.set(journeyIndex, {
           intervals: [],
           classificationTypes: new Set(),
           gaps: 0,
+          gapDurations: [],
           isIncomplete: item.isIncomplete || false
         })
-        // console.log(`  ✅ Creado nuevo trayecto ${journeyIndex} (incompleto: ${item.isIncomplete})`)
       }
       
       const journey = journeyMap.get(journeyIndex)!
       journey.classificationTypes.add(item.classificationType)
       if (item.hasGap) {
         journey.gaps++
+        if (item.gapDuration) {
+          journey.gapDurations.push(item.gapDuration)
+        }
       }
       // Actualizar el estado de incompleto desde el separador
       journey.isIncomplete = item.isIncomplete || false
@@ -130,7 +124,6 @@ const extractJourneysFromResults = (csvResults: CSVIntervalResult | null): Journ
       // Es un intervalo real - debe tener journeyIndex para agruparlo en el trayecto correcto
       const journeyIndex = item.journeyIndex
       if (!journeyIndex || typeof journeyIndex !== 'number') {
-        // console.log('❌ Intervalo sin journeyIndex válido:', item)
         return
       }
       
@@ -140,24 +133,20 @@ const extractJourneysFromResults = (csvResults: CSVIntervalResult | null): Journ
           intervals: [],
           classificationTypes: new Set(),
           gaps: 0,
+          gapDurations: [],
           isIncomplete: false // Se establecerá desde el separador
         })
-        // console.log(`  ✅ Creado nuevo trayecto ${journeyIndex} para intervalo`)
       }
       
       journeyMap.get(journeyIndex)!.intervals.push(item)
-      // console.log(`  ✅ Agregado intervalo al trayecto ${journeyIndex}`)
     }
   })
-
-  // console.log('🗺️ Trayectos encontrados:', Array.from(journeyMap.keys()))
 
   // Convertir a array de Journey
   const journeys: Journey[] = []
   journeyMap.forEach((data: any, journeyIndex: number) => {
     const intervals = data.intervals
     if (intervals.length === 0) {
-      // console.log(`⚠️ Trayecto ${journeyIndex} sin intervalos`)
       return
     }
 
@@ -179,8 +168,6 @@ const extractJourneysFromResults = (csvResults: CSVIntervalResult | null): Journ
     const endTime = lastInterval.endTime ? new Date(lastInterval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : ''
     const totalDuration = calculateJourneyDuration(intervals)
 
-    // console.log(`🚢 Trayecto ${journeyIndex}: ${displayRoute} (${intervals.length} intervalos)${isIncomplete ? ' - INCOMPLETO' : ''} [desde JSON]`)
-
     journeys.push({
       index: journeyIndex,
       startPort,
@@ -189,6 +176,7 @@ const extractJourneysFromResults = (csvResults: CSVIntervalResult | null): Journ
       classificationTypes: Array.from(data.classificationTypes),
       hasGaps: data.gaps > 0,
       gapCount: data.gaps,
+      gapDurations: data.gapDurations,
       isIncomplete,
       startDate,
       startTime,
@@ -198,7 +186,6 @@ const extractJourneysFromResults = (csvResults: CSVIntervalResult | null): Journ
   })
 
   const sortedJourneys = journeys.sort((a, b) => a.index - b.index)
-  // console.log('✅ Trayectos finales:', sortedJourneys)
   return sortedJourneys
 }
 
@@ -212,59 +199,23 @@ export default function JourneySelector({
   onDeselectAll
 }: JourneySelectorProps) {
   
-  // console.log('🎯 JourneySelector renderizado con:', { csvResults, selectedJourneys })
-  
-  // Debug detallado de los datos recibidos
-  // console.log('🔍 DEBUG JourneySelector:')
-  // console.log('  - csvResults existe:', !!csvResults)
-  // console.log('  - csvResults.success:', csvResults?.success)
-  // console.log('  - csvResults.data existe:', !!csvResults?.data)
-  // console.log('  - csvResults.data.intervals existe:', !!csvResults?.data?.intervals)
-  // console.log('  - csvResults.data.intervals.length:', csvResults?.data?.intervals?.length)
-  
-  if (csvResults?.data?.intervals && csvResults.data.intervals.length > 0) {
-    // console.log('  - Primeros 3 items de intervals:')
-    csvResults.data.intervals.slice(0, 3).forEach((item: any, index: number) => {
-      // console.log(`    [${index}]:`, {
-      //   separator: item.separator,
-      //   intervalNumber: item.intervalNumber,
-      //   journeyIndex: item.journeyIndex,
-      //   classificationType: item.classificationType,
-      //   isIncomplete: item.isIncomplete
-      // })
-    })
-  }
-  
-  // Mostrar información del resumen si está disponible
-  if (csvResults?.data?.summary) {
-    // console.log('  - Resumen del procesamiento:')
-    // console.log(`    - Total trayectos: ${csvResults.data.summary.totalJourneys}`)
-    // console.log(`    - Trayectos incompletos: ${csvResults.data.summary.incompleteJourneys}`)
-  }
-  
   const availableJourneys = extractJourneysFromResults(csvResults)
-  
-  // console.log('JourneySelector - availableJourneys:', availableJourneys)
-  
-  // if (availableJourneys.length === 0) {
-  //   return null
-  // }
 
 
   return (
     <div className="absolute top-4 right-4 z-[99999] interface-component journey-selector" style={{ zIndex: 99999 }}>
       <div className="bg-gray-800 rounded-lg shadow-xl border border-gray-700 w-80 sm:w-96 max-w-none max-h-[calc(100vh-3rem)]" style={{ zIndex: 99999, backgroundColor: '#1F2937' }}>
-        <div className="p-4 pr-2">
+        <div className="px-4 pt-3 pb-3 pl-6 pr-2">
           {/* Título */}
-          <div className="mb-3 text-center">
+          <div className="mb-2 text-center">
             <h4 className="text-white font-medium">Seleccionar Trayecto</h4>
           </div>
           
           {/* Línea separadora */}
-          <div className="border-b border-gray-600 mb-3"></div>
+          <div className="border-b border-gray-600 mb-2"></div>
           
           {/* Botón de estadísticas */}
-          <div className="flex justify-center mb-3">
+          <div className="flex justify-center mb-2">
             <button
               onClick={onShowStats}
               className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
@@ -278,7 +229,7 @@ export default function JourneySelector({
           
           {/* Checkbox para seleccionar todos - reorganizado */}
           {availableJourneys.length > 0 && (
-            <div className="flex items-center justify-end gap-2 mb-3 pb-2 border-b border-gray-600">
+            <div className="flex items-center justify-end gap-2 mb-2 pb-1 border-b border-gray-600">
               <span className="text-sm text-gray-300">
                 {selectedJourneys.size === availableJourneys.length ? 'Deseleccionar Todos' : 'Seleccionar Todos'}
               </span>
@@ -307,7 +258,7 @@ export default function JourneySelector({
           )}
           
           <div 
-            className="space-y-2 max-h-[calc(100vh-400px)] sm:max-h-[500px] overflow-y-auto pr-2"
+            className="space-y-1 max-h-[calc(100vh-400px)] sm:max-h-[500px] overflow-y-auto"
             style={{
               scrollbarWidth: 'thin',
               scrollbarColor: '#6B7280 transparent'
@@ -321,16 +272,15 @@ export default function JourneySelector({
               return (
                  <div
                    key={journey.index}
-                   className={`w-full rounded-lg transition-all duration-200 border-2 overflow-hidden ${
+                   onClick={() => onToggleJourney(journey.index)}
+                   className={`w-full rounded-lg transition-all duration-200 border-2 overflow-hidden cursor-pointer ${
                      isSelected
-                       ? 'bg-gray-700 text-white border-gray-500 shadow-lg'
-                       : 'bg-gray-700 text-gray-300 hover:bg-gray-600 border-gray-600 hover:shadow-md'
+                       ? 'bg-gray-700 text-gray-300 border-gray-600'
+                       : 'bg-gray-700 text-gray-300 border-gray-600'
                    }`}
                  >
-                   {/* Encabezado clickeable del trayecto */}
-                   <button
-                     onClick={() => onToggleJourney(journey.index)}
-                     className={`w-full text-left px-4 py-3 border-b transition-colors border-gray-600`}
+                   {/* Encabezado del trayecto */}
+                   <div className={`w-full text-left px-4 py-3 border-b transition-colors border-gray-600`}
                      style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.2)' }}
                    >
                      <div className="flex items-center justify-between">
@@ -345,7 +295,7 @@ export default function JourneySelector({
                            </div>
                            <div 
                              className="text-sm font-medium" 
-                             style={{ color: journey.isIncomplete ? '#FB923C' : isSelected ? '#E5E7EB' : '#9CA3AF' }}
+                             style={{ color: journey.isIncomplete ? '#FB923C' : '#9CA3AF' }}
                            >
                              {journey.endPort}
                            </div>
@@ -365,14 +315,14 @@ export default function JourneySelector({
                          )}
                        </div>
                      </div>
-                   </button>
+                   </div>
                   
                   {/* Contenido informativo */}
                   <div className="p-4 space-y-3">
                      {/* Información temporal organizada */}
                      <div className="grid grid-cols-2 gap-4">
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
+                         <div className="text-xs mb-1 text-gray-400">
                            Fecha
                          </div>
                          <div className="text-sm font-medium">
@@ -380,7 +330,7 @@ export default function JourneySelector({
                          </div>
                        </div>
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
+                         <div className="text-xs mb-1 text-gray-400">
                            Intervalos
                          </div>
                          <div className="text-sm font-medium">
@@ -391,7 +341,7 @@ export default function JourneySelector({
                      
                      <div className="grid grid-cols-2 gap-4">
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
+                         <div className="text-xs mb-1 text-gray-400">
                            Inicio
                          </div>
                          <div className="text-sm font-medium">
@@ -399,7 +349,7 @@ export default function JourneySelector({
                          </div>
                        </div>
                        <div>
-                         <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
+                         <div className="text-xs mb-1 text-gray-400">
                            Final
                          </div>
                          <div className="text-sm font-medium">
@@ -409,28 +359,29 @@ export default function JourneySelector({
                      </div>
                      
                      <div>
-                       <div className={`text-xs mb-1 ${isSelected ? 'text-gray-200' : 'text-gray-400'}`}>
+                       <div className="text-xs mb-1 text-gray-400">
                          Duración
                        </div>
-                       <div className={`text-sm font-semibold ${isSelected ? 'text-white' : 'text-blue-400'}`}>
+                       <div className="text-sm font-semibold text-blue-400">
                          {journey.totalDuration}
                        </div>
                      </div>
                     
                     {/* Advertencia de gaps */}
                     {journey.hasGaps && (
-                      <div className={`mt-3 rounded-lg p-2 ${
-                        isSelected 
-                          ? 'bg-orange-500/30 border border-orange-400/50' 
-                          : 'bg-orange-500/20 border border-orange-500/30'
-                      }`}>
-                        <div className={`flex items-center gap-2 text-xs ${
-                          isSelected ? 'text-orange-200' : 'text-orange-300'
-                        }`}>
+                      <div className="mt-3 rounded-lg p-2 bg-orange-500/20 border border-orange-500/30">
+                        <div className="flex items-center gap-2 text-xs text-orange-300">
                           <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                           </svg>
-                          {journey.gapCount} gap{journey.gapCount > 1 ? 's' : ''} detectado{journey.gapCount > 1 ? 's' : ''}
+                          <div>
+                            <div>{journey.gapCount} gap{journey.gapCount > 1 ? 's' : ''} detectado{journey.gapCount > 1 ? 's' : ''}</div>
+                            {journey.gapDurations.length > 0 && (
+                              <div className="text-orange-200 mt-1">
+                                Duración: {journey.gapDurations.join(', ')}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                      )}
