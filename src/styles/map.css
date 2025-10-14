@@ -1,0 +1,170 @@
+/* Estilos para el componente de mapa */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Mejorar la apariencia de los popups */
+.leaflet-popup-content {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Estilos para el mapa */
+.leaflet-container {
+  background-color: white !important;
+}
+
+/* Los controles de zoom han sido deshabilitados */
+
+/* Estilos para flechas direccionales */
+.directional-arrow {
+  background: transparent !important;
+  border: none !important;
+  z-index: 1000 !important;
+}
+
+.directional-arrow div {
+  transition: transform 0.2s ease;
+}
+
+/* Asegurar que las flechas estén por encima de las líneas */
+.leaflet-marker-icon.directional-arrow {
+  z-index: 1000 !important;
+}
+
+/* Estilos para los botones de trayecto */
+.journey-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.journey-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Estilos para el panel lateral */
+.panel-slide {
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Estilos para el mapa a pantalla completa */
+.fullscreen-map {
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Mejorar la apariencia de los controles flotantes */
+.floating-control {
+  backdrop-filter: blur(10px);
+  background-color: rgba(31, 41, 55, 0.9);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+/* Scrollbar personalizado cross-browser para componentes existentes */
+.panel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #6B7280 #374151;
+}
+
+/* WebKit browsers (Chrome, Brave, Safari) */
+.panel-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-scroll::-webkit-scrollbar-track {
+  background: #374151;
+  border-radius: 3px;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 3px;
+}
+
+.panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Asegurar que los componentes estén por encima del mapa */
+.control-panel {
+  z-index: 9999 !important;
+  position: relative !important;
+}
+
+.floating-button {
+  z-index: 9998 !important;
+  position: relative !important;
+}
+
+/* Forzar que el mapa esté en el fondo */
+.map-background {
+  z-index: 1 !important;
+  position: relative !important;
+}
+
+/* Asegurar que todos los componentes de interfaz estén por encima del mapa */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-control-container {
+  z-index: 1000 !important;
+}
+
+/* Componentes de interfaz con máxima prioridad */
+.interface-component {
+  z-index: 99999 !important;
+  position: relative !important;
+}
+
+.interface-overlay {
+  z-index: 9999 !important;
+  position: relative !important;
+}
+
+/* Asegurar que los popups de Leaflet no interfieran */
+.leaflet-popup {
+  z-index: 2000 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 2000 !important;
+}
+
+/* Estilo específico para JourneySelector */
+.journey-selector {
+  z-index: 99999 !important;
+  position: absolute !important;
+}
+
+/* Estilo específico para IntervalStats */
+.interval-stats {
+  z-index: 999999 !important;
+  position: fixed !important;
+}
+
+/* Modal de estadísticas con máxima prioridad */
+.stats-modal {
+  z-index: 999999 !important;
+  position: fixed !important;
+}
+
+.stats-modal * {
+  z-index: 999999 !important;
+}
+
+/* Ocultar completamente la atribución de Leaflet */
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+.leaflet-control-container .leaflet-control-attribution {
+  display: none !important;
+}
