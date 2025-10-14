@@ -133,12 +133,6 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
   // Extraer datos de intervalos
   const intervalData = React.useMemo(() => {
     const data = extractIntervalData(csvResults, selectedJourneys)
-    console.log('ActivityDistribution Debug:', {
-      csvResults: csvResults?.success,
-      selectedJourneys: Array.from(selectedJourneys),
-      intervalDataLength: data.length,
-      firstInterval: data[0]
-    })
     return data
   }, [csvResults, selectedJourneys])
 

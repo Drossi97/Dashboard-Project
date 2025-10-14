@@ -136,7 +136,6 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
       const allIntervals = extractIntervalsFromResults(csvResults)
       
       if (!allIntervals || allIntervals.length === 0) {
-        console.log('No hay intervalos para mostrar')
         return
       }
 
@@ -148,7 +147,6 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
         return journeysToShow.has(interval.journeyIndex)
       })
 
-      console.log(`Mostrando ${intervalsToShow.length} intervalos para trayectos:`, Array.from(journeysToShow))
 
       // Dibujar cada intervalo
       intervalsToShow.forEach((interval: any) => {
@@ -173,21 +171,24 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                   smoothFactor: 1
                 })
 
-                // Función para formatear duración sin mostrar 0h
+                // Función para formatear duración sin mostrar 0h y sin segundos
                 const formatDuration = (duration: string): string => {
                   if (!duration) return 'N/A'
                   
+                  // Remover segundos del formato (ej: "1h 5m 26s" -> "1h 5m")
+                  let formattedDuration = duration.replace(/\s*\d+s/g, '')
+                  
                   // Si contiene "0h", removerlo
-                  if (duration.includes('0h')) {
-                    return duration.replace('0h ', '').trim()
+                  if (formattedDuration.includes('0h')) {
+                    formattedDuration = formattedDuration.replace('0h ', '').trim()
                   }
                   
-                  return duration
+                  return formattedDuration
                 }
 
                 // Preparar información del intervalo para el tooltip
-                const startTime = interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
-                const endTime = interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
+                const startTime = interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h' : 'N/A'
+                const endTime = interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h' : 'N/A'
                 const date = interval.startTime ? new Date(interval.startTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'N/A'
 
                 // Agregar marcadores de inicio y fin del intervalo
@@ -276,15 +277,15 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
               }
               
               // Interpolar datos del punto específico basado en el progreso
-                const startTime = interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
-                const endTime = interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A'
+                const startTime = interval.startTime ? new Date(interval.startTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h' : 'N/A'
+                const endTime = interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h' : 'N/A'
                 const date = interval.startTime ? new Date(interval.startTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'N/A'
               
               // Calcular tiempo estimado del punto específico
               const startTimestamp = interval.startTime ? new Date(interval.startTime).getTime() : 0
               const endTimestamp = interval.endTime ? new Date(interval.endTime).getTime() : 0
               const pointTimestamp = startTimestamp + (endTimestamp - startTimestamp) * (progress / 100)
-              const pointTime = new Date(pointTimestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+              const pointTime = new Date(pointTimestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h'
               
               // Si estamos en el final de un trayecto, mostrar mensaje especial
               if (isJourneyEnding) {
@@ -332,8 +333,8 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                     <div style="margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Actividad:</span> ${interval.classificationType || 'N/A'}
                       </div>
-                    <div style="font-size: 10px; color: #9CA3AF;">
-                      <span style="color: #374151; font-weight: 500;">Duración:</span> ${formatDuration(interval.duration)} (${startTime}h → ${endTime}h)
+                    <div style="color: #6B7280; font-size: 11px; margin-bottom: 3px;">
+                      <span style="color: #374151; font-weight: 500;">Duración:</span> ${formatDuration(interval.duration)} (${startTime} → ${endTime})
                     </div>
                   </div>
                 </div>
@@ -462,7 +463,7 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
           mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1))
       }
     } catch (error) {
-      console.error('Error al mostrar trayectos:', error)
+      // Error silencioso
     }
   }
 

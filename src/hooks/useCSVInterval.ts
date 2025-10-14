@@ -450,7 +450,7 @@ const createSimpleInterval = (points: Array<{latitude: number | null, longitude:
       }
     }
   } catch (error) {
-    console.warn('Error procesando timestamp del último punto:', error)
+    // Error silencioso
   }
 
   const interval: SimpleInterval = {

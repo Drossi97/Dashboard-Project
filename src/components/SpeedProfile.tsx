@@ -112,128 +112,128 @@ const prepareSpeedDataWithGaps = (csvResults: CSVIntervalResult | null, selected
     if (!journey) return
     
     const journeyIntervals = journey.intervals || []
-    
-    // Ordenar intervalos por timestamp
+
+  // Ordenar intervalos por timestamp
     journeyIntervals.sort((a, b) => {
       const timeA = new Date(`${a.startDate} ${a.startTime}`).getTime()
       const timeB = new Date(`${b.startDate} ${b.startTime}`).getTime()
-      return timeA - timeB
-    })
-    
+    return timeA - timeB
+  })
+
     let lastTimestamp = 0
     
     journeyIntervals.forEach((interval, intervalIndex) => {
-      const navStatus = interval.navStatus || '0.0'
-      let navStatusValue = 0
+    const navStatus = interval.navStatus || '0.0'
+    let navStatusValue = 0
       
-      if (typeof navStatus === 'string') {
-        if (navStatus === '0.0' || navStatus === '0' || navStatus === 'Parado') {
-          navStatusValue = 0
-        } else if (navStatus === '1.0' || navStatus === '1' || navStatus === 'Maniobrando') {
-          navStatusValue = 1
-        } else if (navStatus === '2.0' || navStatus === '2' || navStatus === 'Navegando') {
-          navStatusValue = 2
-        }
-      } else if (typeof navStatus === 'number') {
-        navStatusValue = navStatus
+    if (typeof navStatus === 'string') {
+      if (navStatus === '0.0' || navStatus === '0' || navStatus === 'Parado') {
+        navStatusValue = 0
+      } else if (navStatus === '1.0' || navStatus === '1' || navStatus === 'Maniobrando') {
+        navStatusValue = 1
+      } else if (navStatus === '2.0' || navStatus === '2' || navStatus === 'Navegando') {
+        navStatusValue = 2
       }
-      
-      const avgSpeed = interval.avgSpeed || 0
-      const coordinatePoints = interval.coordinatePoints || []
-      
-      if (coordinatePoints.length === 0) {
+    } else if (typeof navStatus === 'number') {
+      navStatusValue = navStatus
+    }
+    
+    const avgSpeed = interval.avgSpeed || 0
+    const coordinatePoints = interval.coordinatePoints || []
+    
+    if (coordinatePoints.length === 0) {
         // No coordinate points, use interval start/end times
-        const startTimestamp = new Date(`${interval.startDate} ${interval.startTime}`).getTime()
-        const endTimestamp = new Date(`${interval.endDate} ${interval.endTime}`).getTime()
+      const startTimestamp = new Date(`${interval.startDate} ${interval.startTime}`).getTime()
+      const endTimestamp = new Date(`${interval.endDate} ${interval.endTime}`).getTime()
+      
+      if (!isNaN(startTimestamp) && !isNaN(endTimestamp)) {
+          allPoints.push({
+          time: interval.startTime || '00:00',
+          timestamp: startTimestamp,
+          fullDateTime: `${interval.startDate} ${interval.startTime}`,
+          speed: avgSpeed,
+          avgSpeed: avgSpeed,
+          navStatus: navStatus,
+          stateValue: navStatusValue,
+          stateValueScaled: navStatusValue,
+          classificationType: interval.classificationType,
+          intervalNumber: interval.intervalNumber,
+          journeyIndex: journeyIndex,
+          duration: interval.duration,
+          startTime: interval.startTime || '00:00',
+          endTime: interval.endTime || '00:00'
+        })
         
-        if (!isNaN(startTimestamp) && !isNaN(endTimestamp)) {
           allPoints.push({
-            time: interval.startTime || '00:00',
-            timestamp: startTimestamp,
-            fullDateTime: `${interval.startDate} ${interval.startTime}`,
-            speed: avgSpeed,
-            avgSpeed: avgSpeed,
-            navStatus: navStatus,
-            stateValue: navStatusValue,
-            stateValueScaled: navStatusValue,
-            classificationType: interval.classificationType,
-            intervalNumber: interval.intervalNumber,
-            journeyIndex: journeyIndex,
-            duration: interval.duration,
-            startTime: interval.startTime || '00:00',
-            endTime: interval.endTime || '00:00'
-          })
-          
-          allPoints.push({
-            time: interval.endTime || '00:00',
-            timestamp: endTimestamp,
-            fullDateTime: `${interval.endDate} ${interval.endTime}`,
-            speed: avgSpeed,
-            avgSpeed: avgSpeed,
-            navStatus: navStatus,
-            stateValue: navStatusValue,
-            stateValueScaled: navStatusValue,
-            classificationType: interval.classificationType,
-            intervalNumber: interval.intervalNumber,
-            journeyIndex: journeyIndex,
-            duration: interval.duration,
-            startTime: interval.startTime || '00:00',
-            endTime: interval.endTime || '00:00'
-          })
+          time: interval.endTime || '00:00',
+          timestamp: endTimestamp,
+          fullDateTime: `${interval.endDate} ${interval.endTime}`,
+          speed: avgSpeed,
+          avgSpeed: avgSpeed,
+          navStatus: navStatus,
+          stateValue: navStatusValue,
+          stateValueScaled: navStatusValue,
+          classificationType: interval.classificationType,
+          intervalNumber: interval.intervalNumber,
+          journeyIndex: journeyIndex,
+          duration: interval.duration,
+          startTime: interval.startTime || '00:00',
+          endTime: interval.endTime || '00:00'
+        })
           
           lastTimestamp = endTimestamp
-        }
-      } else {
+      }
+    } else {
         // Use coordinate points with sampling
         const maxPointsPerInterval = 20
-        const samplingRate = Math.max(1, Math.floor(coordinatePoints.length / maxPointsPerInterval))
-        
-        const sampledPoints = []
-        if (coordinatePoints[0]) {
-          sampledPoints.push(coordinatePoints[0])
-        }
-        
-        for (let i = samplingRate; i < coordinatePoints.length - 1; i += samplingRate) {
-          sampledPoints.push(coordinatePoints[i])
-        }
-        
-        if (coordinatePoints.length > 1 && coordinatePoints[coordinatePoints.length - 1]) {
-          sampledPoints.push(coordinatePoints[coordinatePoints.length - 1])
-        }
-        
-        sampledPoints.forEach((point, pointIndex) => {
-          if (point.speed !== null && point.speed !== undefined) {
-            const timestamp = new Date(point.timestamp).getTime()
-            if (isNaN(timestamp)) return
-            
+      const samplingRate = Math.max(1, Math.floor(coordinatePoints.length / maxPointsPerInterval))
+      
+      const sampledPoints = []
+      if (coordinatePoints[0]) {
+        sampledPoints.push(coordinatePoints[0])
+      }
+      
+      for (let i = samplingRate; i < coordinatePoints.length - 1; i += samplingRate) {
+        sampledPoints.push(coordinatePoints[i])
+      }
+      
+      if (coordinatePoints.length > 1 && coordinatePoints[coordinatePoints.length - 1]) {
+        sampledPoints.push(coordinatePoints[coordinatePoints.length - 1])
+      }
+      
+      sampledPoints.forEach((point, pointIndex) => {
+        if (point.speed !== null && point.speed !== undefined) {
+          const timestamp = new Date(point.timestamp).getTime()
+          if (isNaN(timestamp)) return
+          
             allPoints.push({
-              time: new Date(point.timestamp).toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false
-              }),
-              timestamp,
-              fullDateTime: point.timestamp,
+            time: new Date(point.timestamp).toLocaleTimeString('es-ES', { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit',
+              hour12: false 
+            }),
+            timestamp,
+            fullDateTime: point.timestamp,
               speed: point.speed,
               avgSpeed: avgSpeed,
               navStatus: navStatus,
-              stateValue: navStatusValue,
-              stateValueScaled: navStatusValue,
-              classificationType: interval.classificationType,
-              intervalNumber: interval.intervalNumber,
-              journeyIndex: journeyIndex,
-              duration: interval.duration,
-              startTime: interval.startTime || '00:00',
-              endTime: interval.endTime || '00:00'
-            })
+            stateValue: navStatusValue,
+            stateValueScaled: navStatusValue,
+            classificationType: interval.classificationType,
+            intervalNumber: interval.intervalNumber,
+            journeyIndex: journeyIndex,
+            duration: interval.duration,
+            startTime: interval.startTime || '00:00',
+            endTime: interval.endTime || '00:00'
+          })
             
             lastTimestamp = timestamp
-          }
-        })
-      }
-    })
-    
+        }
+      })
+    }
+  })
+  
     // Add gap point if next journey is not contiguous
     if (idx < sortedJourneyIndices.length - 1) {
       const nextJourneyIndex = sortedJourneyIndices[idx + 1]
@@ -259,15 +259,13 @@ const prepareSpeedDataWithGaps = (csvResults: CSVIntervalResult | null, selected
     }
   })
   
-  console.log('SpeedProfile Debug - Unified dataset with gaps:', allPoints.length, 'points')
   return allPoints.sort((a, b) => a.timestamp - b.timestamp)
 }
 
 const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourneys, isVisible, onClose, onViewChange }) => {
   const [selectedDataPoint, setSelectedDataPoint] = React.useState<SpeedDataPoint | null>(null)
-  const [cursorPosition, setCursorPosition] = React.useState<number | null>(null)
-  const [mousePosition, setMousePosition] = React.useState<{ x: number, y: number } | null>(null)
   const [brushRange, setBrushRange] = React.useState<[number, number] | null>(null)
+  const [shouldResetView, setShouldResetView] = React.useState(false)
   const [showSpeedLine, setShowSpeedLine] = React.useState(true)
   const [showAvgSpeedLine, setShowAvgSpeedLine] = React.useState(true)
   const [showStateLine, setShowStateLine] = React.useState(true)
@@ -275,8 +273,6 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
   const [showIntervalLines, setShowIntervalLines] = React.useState(false)
 
   const brushChangeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
-  const cursorTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
-  const isMouseInBrushRef = React.useRef<boolean>(false)
 
   // Cleanup effect para limpiar timeouts
   React.useEffect(() => {
@@ -284,21 +280,30 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
       if (brushChangeTimeoutRef.current) {
         clearTimeout(brushChangeTimeoutRef.current)
       }
-      if (cursorTimeoutRef.current) {
-        clearTimeout(cursorTimeoutRef.current)
-      }
     }
   }, [])
+
+  // Resetear vista cuando cambien los trayectos seleccionados
+  React.useEffect(() => {
+    if (selectedJourneys.size > 0) {
+      setBrushRange(null) // Resetear el brush a vista completa
+      setSelectedDataPoint(null) // Limpiar selección
+      setShouldResetView(true) // Marcar que se debe resetear la vista
+    }
+  }, [selectedJourneys])
+
+  // Resetear vista cuando se carguen nuevos datos CSV
+  React.useEffect(() => {
+    if (csvResults?.success && csvResults.data?.journeys) {
+      setBrushRange(null) // Resetear el brush a vista completa
+      setSelectedDataPoint(null) // Limpiar selección
+      setShouldResetView(true) // Marcar que se debe resetear la vista
+    }
+  }, [csvResults])
 
   // Extraer datos de intervalos
   const intervalData = React.useMemo(() => {
     const data = extractIntervalData(csvResults, selectedJourneys)
-    console.log('SpeedProfile Debug:', {
-      csvResults: csvResults?.success,
-      selectedJourneys: Array.from(selectedJourneys),
-      intervalDataLength: data.length,
-      firstInterval: data[0]
-    })
     return data
   }, [csvResults, selectedJourneys])
 
@@ -478,12 +483,11 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
     brushChangeTimeoutRef.current = setTimeout(() => {
       if (brushData && brushData.startIndex !== undefined && brushData.endIndex !== undefined) {
         setBrushRange([brushData.startIndex, brushData.endIndex])
-        // Limpiar cursor cuando cambia el brush
-        setCursorPosition(null)
         setSelectedDataPoint(null)
       } else {
         setBrushRange(null)
       }
+      setShouldResetView(false) // Marcar que ya no se necesita resetear
     }, 100)
   }, [])
 
@@ -570,7 +574,10 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                     ry: 4px !important;
                     transform: translateY(0px) !important;
                   }
-                  .brush-container .recharts-brush-traveller {
+                  .brush-container .recharts-brush-traveller,
+                  .brush-container .recharts-brush-traveller:first-child,
+                  .brush-container .recharts-brush-traveller:last-child,
+                  .brush-container rect[class*="traveller"] {
                     fill: #4B5463 !important;
                     stroke: #FFFFFF !important;
                     stroke-width: 4px !important;
@@ -582,7 +589,10 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                     transform: translateY(0px) !important;
                     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
                   }
-                  .brush-container .recharts-brush-traveller:hover {
+                  .brush-container .recharts-brush-traveller:hover,
+                  .brush-container .recharts-brush-traveller:first-child:hover,
+                  .brush-container .recharts-brush-traveller:last-child:hover,
+                  .brush-container rect[class*="traveller"]:hover {
                     fill: #6B7280 !important;
                     stroke: #FFFFFF !important;
                     stroke-width: 4px !important;
@@ -592,7 +602,13 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                     transition: all 0.2s ease !important;
                   }
                   .brush-container .recharts-brush-traveller:active,
-                  .brush-container .recharts-brush-traveller:focus {
+                  .brush-container .recharts-brush-traveller:focus,
+                  .brush-container .recharts-brush-traveller:first-child:active,
+                  .brush-container .recharts-brush-traveller:first-child:focus,
+                  .brush-container .recharts-brush-traveller:last-child:active,
+                  .brush-container .recharts-brush-traveller:last-child:focus,
+                  .brush-container rect[class*="traveller"]:active,
+                  .brush-container rect[class*="traveller"]:focus {
                     fill: #6B7280 !important;
                     stroke: #FFFFFF !important;
                     stroke-width: 4px !important;
@@ -609,6 +625,19 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   .brush-container .recharts-brush-slide:hover {
                     fill: rgba(255, 255, 255, 0.25) !important;
                     stroke: rgba(255, 255, 255, 0.55) !important;
+                  }
+                  /* Estilos adicionales para asegurar consistencia en todos los handles */
+                  .brush-container rect[class*="traveller"] {
+                    fill: #4B5463 !important;
+                    stroke: #FFFFFF !important;
+                    stroke-width: 4px !important;
+                    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
+                  }
+                  .brush-container rect[class*="traveller"]:hover {
+                    fill: #6B7280 !important;
+                    stroke: #FFFFFF !important;
+                    stroke-width: 4px !important;
+                    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
                   }
                   .brush-container::before {
                     content: '' !important;
@@ -640,8 +669,8 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                     fill="transparent"
                     fillOpacity={0}
                     onChange={handleBrushChange}
-                    startIndex={brushRange ? brushRange[0] : 0}
-                    endIndex={brushRange ? brushRange[1] : scaledSpeedData.length - 1}
+                    startIndex={shouldResetView ? 0 : (brushRange ? brushRange[0] : 0)}
+                    endIndex={shouldResetView ? scaledSpeedData.length - 1 : (brushRange ? brushRange[1] : scaledSpeedData.length - 1)}
                     tickFormatter={() => ''}
                     style={{
                       backgroundColor: 'transparent',
@@ -754,87 +783,23 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
             <div className="h-[calc(100%-3rem)] min-h-0 relative">
               {speedData.length > 0 ? (
                 <>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      margin={{
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    margin={{
                         top: 50,
-                        right: 30,
+                      right: 30,
                         left: 0,
-                        bottom: 20,
-                      }}
-                      onMouseMove={(chartState, event) => {
-                        if (chartState && chartState.activePayload && chartState.activePayload.length > 0) {
-                          setSelectedDataPoint(chartState.activePayload[0].payload)
-                        }
-                        
-                        if (event && event.currentTarget) {
-                          // Limpiar timeout anterior
-                          if (cursorTimeoutRef.current) {
-                            clearTimeout(cursorTimeoutRef.current)
-                          }
-                          
-                          const rect = event.currentTarget.getBoundingClientRect()
-                          const mouseX = event.clientX - rect.left
-                          const mouseY = event.clientY - rect.top
-                          const chartWidth = rect.width
-                          
-                          // Área del brush (más amplia para evitar parpadeos)
-                          const brushAreaTop = 0
-                          const brushAreaBottom = 80 // Área más amplia del brush
-                          const isInBrushArea = mouseY >= brushAreaTop && mouseY <= brushAreaBottom
-                          
-                          // Actualizar referencia de estado del brush
-                          isMouseInBrushRef.current = isInBrushArea
-                          
-                          // Solo procesar cursor si NO estamos en el área del brush
-                          if (!isInBrushArea) {
-                            // Calcular los límites reales del área de datos
-                            const dataAreaLeft = 0
-                            const dataAreaRight = chartWidth - 30
-                            const dataAreaWidth = dataAreaRight - dataAreaLeft
-                            
-                            // Verificar si estamos en el área válida del gráfico
-                            if (mouseX >= dataAreaLeft && mouseX <= dataAreaRight) {
-                              // Usar timeout para evitar actualizaciones excesivas
-                              cursorTimeoutRef.current = setTimeout(() => {
-                                setMousePosition({ x: mouseX, y: mouseY })
-                                
-                                // Convertir la posición del mouse directamente a timestamp
-                                if (zoomedData.length > 0) {
-                                  const startTime = zoomedData[0].timestamp
-                                  const endTime = zoomedData[zoomedData.length - 1].timestamp
-                                  const timeRange = endTime - startTime
-                                  
-                                  // Usar la posición relativa dentro del área de datos
-                                  const relativeX = (mouseX - dataAreaLeft) / dataAreaWidth
-                                  const interpolatedTime = startTime + (timeRange * relativeX)
-                                  
-                                  setCursorPosition(interpolatedTime)
-                                }
-                              }, 16) // ~60fps
-                            } else {
-                              // Fuera del área válida, ocultar cursor
-                              setMousePosition(null)
-                              setCursorPosition(null)
-                            }
-                          }
-                          // Si estamos en el área del brush, no hacer nada (mantener estado actual)
-                        }
-                      }}
-                      onMouseLeave={() => {
-                        // Limpiar timeouts
-                        if (cursorTimeoutRef.current) {
-                          clearTimeout(cursorTimeoutRef.current)
-                          cursorTimeoutRef.current = null
-                        }
-                        
-                        // Resetear estados
-                        setCursorPosition(null)
-                        setMousePosition(null)
-                        setSelectedDataPoint(null)
-                        isMouseInBrushRef.current = false
-                      }}
-                    >
+                      bottom: 20,
+                    }}
+                    onMouseMove={(chartState, event) => {
+                      if (chartState && chartState.activePayload && chartState.activePayload.length > 0) {
+                        setSelectedDataPoint(chartState.activePayload[0].payload)
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setSelectedDataPoint(null)
+                    }}
+                  >
                     <CartesianGrid strokeDasharray="2 8" stroke="#FFFFFF" strokeOpacity={0.2} strokeWidth={0.5} />
                     
                     <XAxis 
@@ -984,34 +949,9 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       />
                     ))}
 
-                    </LineChart>
-                  </ResponsiveContainer>
+                  </LineChart>
+                </ResponsiveContainer>
                   
-                  {/* Línea deslizante del cursor personalizada */}
-                  {mousePosition && (
-                    <svg
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        pointerEvents: 'none',
-                        zIndex: 10
-                      }}
-                    >
-                      <line
-                        x1={mousePosition.x}
-                        y1={0}
-                        x2={mousePosition.x}
-                        y2="100%"
-                        stroke="#FFFFFF"
-                        strokeWidth={1}
-                        strokeOpacity={0.8}
-                        strokeDasharray="2 2"
-                      />
-                    </svg>
-                  )}
                 </>
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
@@ -1063,14 +1003,14 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
               </div>
             </div>
 
-             {/* Panel 2: Velocidad Media del Intervalo */}
-             <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
-               <div className="flex items-center gap-2 mb-1">
+            {/* Panel 2: Velocidad Media del Intervalo */}
+            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
+              <div className="flex items-center gap-2 mb-1">
                  <div className="w-2 h-2 bg-cyan-300 rounded-full"></div>
                  <h4 className="text-cyan-100 font-semibold text-xs">
                    Velocidad Media - Intervalo #{((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
                  </h4>
-               </div>
+              </div>
               <p className="text-cyan-50 text-base font-bold text-center">
                 {(() => {
                   const dataPoint = selectedDataPoint || speedData[0]
@@ -1079,17 +1019,17 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   }
                   return dataPoint?.avgSpeed?.toFixed(2) || '--.--'
                 })()} nudos
-              </p>
+                </p>
             </div>
 
-             {/* Panel 3: Tiempo del Intervalo */}
-             <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
-               <div className="flex items-center gap-2 mb-1">
+            {/* Panel 3: Tiempo del Intervalo */}
+            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
+              <div className="flex items-center gap-2 mb-1">
                  <div className="w-2 h-2 bg-blue-300 rounded-full"></div>
                  <h4 className="text-blue-100 font-semibold text-xs">
                    Duración - Intervalo #{((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
                  </h4>
-               </div>
+              </div>
               <div className="space-y-0.5 text-center">
                 <p className="text-blue-50 text-sm font-bold">
                   {(() => {
@@ -1131,16 +1071,16 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
               </div>
             </div>
 
-             {/* Panel 4: Actividad */}
-             <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
-               <div className="flex items-center gap-2 mb-1">
-                 <div className="w-2 h-2 bg-emerald-300 rounded-full"></div>
+            {/* Panel 4: Actividad */}
+            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-2 h-2 bg-emerald-300 rounded-full"></div>
                  <h4 className="text-emerald-100 font-semibold text-xs">
                    Actividad del Barco - Intervalo #{((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
                  </h4>
-               </div>
+              </div>
                <div className="text-center">
-                 <p className="text-emerald-50 text-sm">
+                <p className="text-emerald-50 text-sm">
                    {(() => {
                      const dataPoint = selectedDataPoint || speedData[0]
                      if (dataPoint?.classificationType === 'GAP') {
@@ -1148,8 +1088,8 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                      }
                      return dataPoint?.classificationType || '--.--'
                    })()}
-                 </p>
-               </div>
+                </p>
+              </div>
             </div>
           </div>
         </div>
