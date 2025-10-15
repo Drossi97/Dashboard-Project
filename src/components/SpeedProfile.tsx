@@ -378,7 +378,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
           type: 'interval',
           from: lastInterval,
           to: currentInterval,
-          label: `Int ${lastInterval} → ${currentInterval}`
+          label: `#${lastInterval} → #${currentInterval}`
         })
       }
       
@@ -535,155 +535,102 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
           </div>
 
 
-          {/* Brush de navegación estilo Instagram */}
+          {/* Brush de navegación simplificado */}
           {speedData.length > 0 && (
-            <div className="brush-container" style={{ 
-              backgroundColor: '#4B5463', 
-              marginBottom: '12px', 
-              borderRadius: '8px', 
-              padding: '8px' 
-            }}>
+            <div 
+              className="mb-3 rounded-lg p-2"
+              style={{ backgroundColor: '#4B5463' }}
+            >
               <style dangerouslySetInnerHTML={{
                 __html: `
-                  .brush-container {
-                    position: relative !important;
-                    height: 32px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                  }
-                  .brush-container .recharts-wrapper {
-                    height: 32px !important;
-                    display: flex !important;
-                    align-items: center !important;
+                  .brush-container .recharts-brush {
+                    background-color: #4B5463 !important;
                   }
                   .brush-container .recharts-surface {
-                    height: 32px !important;
-                    display: flex !important;
-                    align-items: center !important;
+                    background-color: #4B5463 !important;
                   }
-                  .brush-container .recharts-brush {
-                    height: 32px !important;
-                    display: flex !important;
-                    align-items: center !important;
+                  .brush-container .recharts-wrapper {
+                    background-color: #4B5463 !important;
                   }
                   .brush-container .recharts-brush-slide {
-                    fill: rgba(255, 255, 255, 0.18) !important;
-                    stroke: rgba(255, 255, 255, 0.45) !important;
-                    stroke-width: 1.5px !important;
-                    rx: 4px !important;
-                    ry: 4px !important;
-                    transform: translateY(0px) !important;
-                  }
-                  .brush-container .recharts-brush-traveller,
-                  .brush-container .recharts-brush-traveller:first-child,
-                  .brush-container .recharts-brush-traveller:last-child,
-                  .brush-container rect[class*="traveller"] {
                     fill: #4B5463 !important;
-                    stroke: #FFFFFF !important;
-                    stroke-width: 4px !important;
-                    width: 12px !important;
-                    height: 20px !important;
-                    rx: 4px !important;
-                    ry: 4px !important;
-                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2)) !important;
-                    transform: translateY(0px) !important;
-                    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
-                  }
-                  .brush-container .recharts-brush-traveller:hover,
-                  .brush-container .recharts-brush-traveller:first-child:hover,
-                  .brush-container .recharts-brush-traveller:last-child:hover,
-                  .brush-container rect[class*="traveller"]:hover {
-                    fill: #6B7280 !important;
-                    stroke: #FFFFFF !important;
-                    stroke-width: 4px !important;
-                    transform: translateY(0px) scale(1.05) !important;
-                    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3)) !important;
-                    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
-                    transition: all 0.2s ease !important;
-                  }
-                  .brush-container .recharts-brush-traveller:active,
-                  .brush-container .recharts-brush-traveller:focus,
-                  .brush-container .recharts-brush-traveller:first-child:active,
-                  .brush-container .recharts-brush-traveller:first-child:focus,
-                  .brush-container .recharts-brush-traveller:last-child:active,
-                  .brush-container .recharts-brush-traveller:last-child:focus,
-                  .brush-container rect[class*="traveller"]:active,
-                  .brush-container rect[class*="traveller"]:focus {
-                    fill: #6B7280 !important;
-                    stroke: #FFFFFF !important;
-                    stroke-width: 4px !important;
-                    box-shadow: 0 0 0 3px rgba(255, 255, 255, 1) !important;
-                    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3)) !important;
+                    background-color: #4B5463 !important;
                   }
                   .brush-container .recharts-brush-texts {
-                    display: none !important;
+                    background-color: #4B5463 !important;
                   }
                   .brush-container svg {
-                    overflow: visible !important;
-                    height: 32px !important;
+                    background-color: #4B5463 !important;
+                  }
+                  .brush-container svg rect {
+                    fill: #4B5463 !important;
+                  }
+                  .brush-container .recharts-brush-slide rect {
+                    fill: #4B5463 !important;
+                  }
+                  .brush-container * {
+                    background-color: #4B5463 !important;
+                  }
+                  .brush-container .recharts-brush-slide {
+                    fill: #818791 !important;
+                    stroke: #A5AAB1 !important;
+                    stroke-width: 2px !important;
+                    border: 2px solid #A5AAB1 !important;
                   }
                   .brush-container .recharts-brush-slide:hover {
-                    fill: rgba(255, 255, 255, 0.25) !important;
-                    stroke: rgba(255, 255, 255, 0.55) !important;
+                    fill: #818791 !important;
+                    stroke: #A5AAB1 !important;
+                    stroke-width: 2px !important;
+                    border: 2px solid #A5AAB1 !important;
                   }
-                  /* Estilos adicionales para asegurar consistencia en todos los handles */
-                  .brush-container rect[class*="traveller"] {
+                  .brush-container .recharts-brush-slide rect {
+                    fill: #818791 !important;
+                  }
+                  .brush-container .recharts-brush-slide:hover rect {
+                    fill: #818791 !important;
+                  }
+                  .brush-container .recharts-brush-traveller {
                     fill: #4B5463 !important;
-                    stroke: #FFFFFF !important;
-                    stroke-width: 4px !important;
-                    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
+                    stroke: #A5AAB1 !important;
+                    stroke-width: 2px !important;
                   }
-                  .brush-container rect[class*="traveller"]:hover {
-                    fill: #6B7280 !important;
-                    stroke: #FFFFFF !important;
-                    stroke-width: 4px !important;
-                    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8) !important;
+                  .brush-container .recharts-brush-traveller:hover {
+                    fill: #4B5463 !important;
+                    stroke: #A5AAB1 !important;
+                    stroke-width: 2px !important;
                   }
-                  .brush-container::before {
-                    content: '' !important;
-                    position: absolute !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    right: 0 !important;
-                    bottom: 0 !important;
-                    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%) !important;
-                    pointer-events: none !important;
-                    border-radius: 8px !important;
+                  .brush-container .recharts-brush-traveller rect {
+                    fill: #4B5463 !important;
+                    stroke: #A5AAB1 !important;
+                    stroke-width: 2px !important;
+                  }
+                  .brush-container .recharts-brush-traveller:hover rect {
+                    fill: #4B5463 !important;
+                    stroke: #A5AAB1 !important;
+                    stroke-width: 2px !important;
                   }
                 `
               }} />
-              <ResponsiveContainer width="100%" height={32}>
-                <LineChart 
-                  data={scaledSpeedData}
-                  margin={{
-                    top: 0,
-                    right: 0,
-                    left: 0,
-                    bottom: 0,
-                  }}
-                >
-                  <Brush
-                    dataKey="timestamp"
-                    height={32}
-                    stroke="transparent"
-                    fill="transparent"
-                    fillOpacity={0}
-                    onChange={handleBrushChange}
-                    startIndex={shouldResetView ? 0 : (brushRange ? brushRange[0] : 0)}
-                    endIndex={shouldResetView ? scaledSpeedData.length - 1 : (brushRange ? brushRange[1] : scaledSpeedData.length - 1)}
-                    tickFormatter={() => ''}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      borderRadius: '8px',
-                      paddingTop: '0px',
-                      paddingBottom: '0px',
-                      marginTop: '0px',
-                      marginBottom: '0px'
-                    }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="brush-container">
+                <ResponsiveContainer width="100%" height={32}>
+                  <LineChart 
+                    data={scaledSpeedData}
+                    margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
+                  >
+                    <Brush
+                      dataKey="timestamp"
+                      height={28}
+                      stroke="rgba(255,255,255,0.6)"
+                      fill="rgba(255,255,255,0.25)"
+                      fillOpacity={1}
+                      onChange={handleBrushChange}
+                      startIndex={shouldResetView ? 0 : (brushRange ? brushRange[0] : 0)}
+                      endIndex={shouldResetView ? scaledSpeedData.length - 1 : (brushRange ? brushRange[1] : scaledSpeedData.length - 1)}
+                      tickFormatter={() => ''}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
 
@@ -703,7 +650,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   className="text-xs font-medium whitespace-nowrap"
                   style={{ color: showSpeedLine ? '#00BFFF' : '#9CA3AF' }}
                 >
-                  Velocidad Puntual
+                  Velocidad
                 </span>
               </button>
               

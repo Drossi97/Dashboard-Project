@@ -53,9 +53,13 @@ const groupByClassification = (intervalData: IntervalData[]) => {
     return acc
   }, {} as Record<string, { name: string, value: number, duration: number }>)
 
+  // Calcular la duración total para obtener porcentajes correctos
+  const totalDuration = intervalData.reduce((total, interval) => total + interval.durationInSeconds, 0)
+
   return Object.values(grouped).map((item, index) => ({
     ...item,
-    color: CHART_COLORS[index % CHART_COLORS.length]
+    color: CHART_COLORS[index % CHART_COLORS.length],
+    percentage: totalDuration > 0 ? (item.duration / totalDuration * 100) : 0
   }))
 }
 
@@ -196,7 +200,7 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                         outerRadius={Math.min(180, Math.max(140, 200 - groupByClassification(intervalData).length * 3))}
                         innerRadius={Math.min(80, Math.max(60, 100 - groupByClassification(intervalData).length * 2))}
                         fill="#8884d8"
-                        dataKey="value"
+                        dataKey="duration"
                         onMouseEnter={(data, index) => setHoveredIndex(index)}
                         onMouseLeave={() => setHoveredIndex(null)}
                       >
@@ -254,7 +258,7 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                           } ${
                             hoveredIndex === index ? 'text-gray-200' : 'text-gray-400'
                           }`}>
-                            {formatDuration(entry.duration)} ({(entry.value / intervalData.length * 100).toFixed(0)}%)
+                            {formatDuration(entry.duration)} ({entry.percentage.toFixed(1)}%)
                           </span>
                         </div>
                       </div>
