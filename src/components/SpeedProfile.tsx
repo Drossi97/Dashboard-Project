@@ -269,7 +269,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
   const [showSpeedLine, setShowSpeedLine] = React.useState(true)
   const [showAvgSpeedLine, setShowAvgSpeedLine] = React.useState(true)
   const [showStateLine, setShowStateLine] = React.useState(true)
-  const [showJourneyLines, setShowJourneyLines] = React.useState(false)
+  const [showJourneyLines, setShowJourneyLines] = React.useState(true)
   const [showIntervalLines, setShowIntervalLines] = React.useState(false)
 
   const brushChangeTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
