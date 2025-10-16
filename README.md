@@ -5,6 +5,7 @@ Dashboard interactivo para análisis de datos de navegación marítima mediante 
 ## 📋 Descripción
 
 Este proyecto es una aplicación web desarrollada con Astro que permite cargar, procesar y visualizar datos de navegación marítima a través de archivos CSV obtenibles del software GuapetonCloud, desarrollado por la empresa deep-insight
+
 https://www.deep-insight.es/
 
 Ofrece análisis detallados de rutas, actividades portuarias y estadísticas de navegación mediante gráficos interactivos.
