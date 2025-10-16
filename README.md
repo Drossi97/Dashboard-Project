@@ -4,18 +4,19 @@ Dashboard interactivo para análisis de datos de navegación marítima mediante 
 
 ## 📋 Descripción
 
-Este proyecto es una aplicación web desarrollada con Astro que permite cargar, procesar y visualizar datos de navegación marítima a través de archivos CSV. Ofrece análisis detallados de rutas, actividades portuarias y estadísticas de navegación mediante gráficos interactivos.
+Este proyecto es una aplicación web desarrollada con Astro que permite cargar, procesar y visualizar datos de navegación marítima a través de archivos CSV obtenibles del software GuapetonCloud, desarrollado por la empresa deep-insight 
+https://www.deep-insight.es/ 
+Ofrece análisis detallados de rutas, actividades portuarias y estadísticas de navegación mediante gráficos interactivos.
 
 ## ✨ Características
 
 - **Carga de archivos CSV**: Sistema de drag & drop para cargar múltiples archivos CSV
 - **Análisis de navegación**: Visualización de rutas completas entre puertos
-- **Gráficos interactivos**: Gráficos de líneas y de tarta para análisis visual
+- **Gráficos interactivos**: Gráficos de líneas y circular para análisis visual
 - **Estadísticas detalladas**: Análisis por trayectos y actividades portuarias
 - **Cálculo de distancias**: Distancias automáticas a puertos (Algeciras, Ceuta, Tánger Med)
 - **Análisis de intervalos**: Clasificación de estados (atracado, maniobrando, en tránsito)
 - **Interfaz responsiva**: Diseño adaptable a diferentes dispositivos
-- **Tema oscuro**: Interfaz moderna con paleta de colores oscura
 
 ## 🚀 Tecnologías
 
@@ -48,15 +49,6 @@ pnpm dev
 
 4. Abre [http://localhost:4321](http://localhost:4321) en tu navegador.
 
-## 🎯 Uso
-
-1. **Cargar archivos CSV**: Arrastra y suelta archivos CSV en la zona de carga o haz clic para seleccionarlos
-2. **Procesar datos**: Haz clic en "Procesar Datos" para analizar los archivos
-3. **Visualizar**: Explora los diferentes paneles de análisis:
-   - **Gráfico de líneas**: Visualiza datos temporales con zoom interactivo
-   - **Estadísticas de navegación completa**: Análisis global de todas las actividades
-   - **Estadísticas por trayectos**: Análisis detallado de cada ruta individual
-
 ## 📝 Formato de archivos CSV
 
 Los archivos CSV deben contener las siguientes columnas:
@@ -66,31 +58,6 @@ Los archivos CSV deben contener las siguientes columnas:
 - Información de puertos
 - Velocidad y duración
 
-## 🏗️ Estructura del Proyecto
-
-```
-src/
-├── components/
-│   ├── ui/                      # Componentes UI básicos (Radix UI)
-│   │   ├── badge.tsx
-│   │   ├── button.tsx
-│   │   ├── card.tsx
-│   │   ├── input.tsx
-│   │   ├── label.tsx
-│   │   └── scroll-area.tsx
-│   ├── FileUploader.tsx         # Componente de carga de archivos
-│   ├── LineChart.tsx            # Gráfico de líneas interactivo
-│   ├── NavigationAnalysis.tsx   # Análisis de navegación
-│   └── CSVAnalyzer.tsx          # Procesador principal de CSV
-├── hooks/
-│   └── useCSVProcessor.ts       # Hook para procesamiento de datos
-├── layouts/
-│   └── Layout.astro             # Layout principal
-├── lib/
-│   └── utils.ts                 # Utilidades
-└── pages/
-    └── index.astro              # Página principal
-```
 
 ## 📜 Scripts disponibles
 
@@ -102,26 +69,6 @@ src/
 ## 🌐 Despliegue
 
 Este proyecto está configurado para desplegarse en [Vercel](https://vercel.com/) con el adaptador oficial de Astro.
-
-### Despliegue automático
-
-1. Conecta tu repositorio de GitHub a Vercel
-2. Vercel detectará automáticamente que es un proyecto Astro
-3. El despliegue se realizará automáticamente en cada push a la rama `main`
-
-### Variables de entorno
-
-No se requieren variables de entorno especiales para este proyecto.
-
-## 🔄 Migración desde Next.js
-
-Esta aplicación fue originalmente desarrollada en Next.js y posteriormente migrada a Astro manteniendo:
-
-- ✅ Toda la funcionalidad original
-- ✅ Componentes React como "Astro Islands"
-- ✅ Hooks y lógica de estado
-- ✅ Estilos y diseño
-- ✅ Gráficos interactivos
 
 ## 📄 Licencias de Terceros
 
@@ -176,7 +123,3 @@ Todas las licencias completas se pueden encontrar en sus respectivos paquetes en
 ## ⚠️ Estado del Proyecto
 
 Este proyecto está en fase de desarrollo activo. Algunas características pueden estar en pruebas o sujetas a cambios.
-
----
-
-Desarrollado con ❤️ usando Astro y React
