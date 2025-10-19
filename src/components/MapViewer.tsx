@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, forwardRef, useImperativeHandle, useState } from "react"
-import "../styles/map.css"
 import { CSVIntervalResult } from "../hooks/useCSVInterval"
 import { getJourneyColor } from "../lib/colors"
 
@@ -463,7 +462,8 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
           mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1))
       }
     } catch (error) {
-      // Error silencioso
+      console.warn('Error al mostrar trayectos en el mapa:', error)
+      // Continuar sin mostrar el mapa si hay error
     }
   }
 
@@ -548,25 +548,88 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
   }, [selectedJourneys, csvResults])
 
   return (
-    <div className="w-full h-full bg-white">
-      <div ref={mapRef} className="w-full h-full bg-white" />
+    <div className="w-full h-full bg-white relative">
+      <div 
+        ref={mapRef} 
+        className="w-full h-full bg-white"
+        style={{
+          /* Asegurar que el mapa esté en el fondo */
+          zIndex: 1
+        }}
+      />
       <style>{`
+        /* Estilos específicos para tooltips personalizados de Leaflet */
         .custom-tooltip {
           background: transparent !important;
           border: none !important;
           box-shadow: none !important;
           padding: 0 !important;
         }
+        
         .custom-tooltip .leaflet-tooltip-content {
           margin: 0 !important;
           padding: 0 !important;
         }
+        
+        /* Estilos para marcadores personalizados */
+        .custom-marker {
+          background: transparent !important;
+          border: none !important;
+        }
+        
+        /* Mejorar la apariencia de los popups de Leaflet */
+        .leaflet-popup-content {
+          font-family: Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif !important;
+          font-size: 14px !important;
+          line-height: 1.4 !important;
+        }
+        
+        .leaflet-popup-content-wrapper {
+          border-radius: 8px !important;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        /* Estilos específicos del mapa de Leaflet */
+        .leaflet-container {
+          background-color: white !important;
+          z-index: 1 !important;
+        }
+        
+        .leaflet-control-container {
+          z-index: 1000 !important;
+        }
+        
+        /* Asegurar que los popups de Leaflet tengan prioridad correcta */
+        .leaflet-popup {
+          z-index: 2000 !important;
+        }
+        
+        .leaflet-popup-pane {
+          z-index: 2000 !important;
+        }
+        
         /* Ocultar completamente la atribución de Leaflet */
         .leaflet-control-attribution {
           display: none !important;
         }
+        
         .leaflet-control-container .leaflet-control-attribution {
           display: none !important;
+        }
+        
+        /* Estilos para flechas direccionales si se necesitan */
+        .directional-arrow {
+          background: transparent !important;
+          border: none !important;
+          z-index: 1000 !important;
+        }
+        
+        .directional-arrow div {
+          transition: transform 0.2s ease;
+        }
+        
+        .leaflet-marker-icon.directional-arrow {
+          z-index: 1000 !important;
         }
       `}</style>
     </div>

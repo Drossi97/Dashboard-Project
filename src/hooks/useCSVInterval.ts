@@ -450,7 +450,8 @@ const createSimpleInterval = (points: Array<{latitude: number | null, longitude:
       }
     }
   } catch (error) {
-    // Error silencioso
+    console.warn('Error al extraer fecha/hora del punto:', error, 'Usando valores por defecto')
+    // Continuar con valores por defecto si hay error al parsear fechas
   }
 
   const interval: SimpleInterval = {

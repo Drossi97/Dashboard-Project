@@ -1,6 +1,7 @@
 import React from "react"
 import { CSVIntervalResult } from "../hooks/useCSVInterval"
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
+import { parseDurationToSeconds, formatDuration } from "../lib/utils"
 
 interface ActivityDistributionProps {
   csvResults: CSVIntervalResult | null
@@ -63,42 +64,6 @@ const groupByClassification = (intervalData: IntervalData[]) => {
   }))
 }
 
-// Función para convertir duración a segundos
-const parseDurationToSeconds = (duration: string): number => {
-  try {
-    const parts = duration.split(' ')
-    let totalSeconds = 0
-    
-    parts.forEach(part => {
-      if (part.includes('h')) {
-        totalSeconds += parseInt(part.replace('h', '')) * 3600
-      } else if (part.includes('m')) {
-        totalSeconds += parseInt(part.replace('m', '')) * 60
-      } else if (part.includes('s')) {
-        totalSeconds += parseInt(part.replace('s', ''))
-      }
-    })
-    
-    return totalSeconds
-  } catch {
-    return 0
-  }
-}
-
-// Función para formatear duración en segundos a formato legible
-const formatDuration = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const remainingSeconds = seconds % 60
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m ${remainingSeconds}s`
-  } else if (minutes > 0) {
-    return `${minutes}m ${remainingSeconds}s`
-  } else {
-    return `${remainingSeconds}s`
-  }
-}
 
 // Función para extraer datos de intervalos desde journeys
 const extractIntervalData = (csvResults: CSVIntervalResult | null, selectedJourneys: Set<number>): IntervalData[] => {

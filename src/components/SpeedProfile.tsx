@@ -1,6 +1,7 @@
 import React from "react"
 import { CSVIntervalResult } from "../hooks/useCSVInterval"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Brush } from 'recharts'
+import { parseDurationToSeconds } from "../lib/utils"
 
 interface SpeedProfileProps {
   csvResults: CSVIntervalResult | null
@@ -43,27 +44,6 @@ interface SpeedDataPoint {
   journeyEndDateTime?: string
 }
 
-// Función para convertir duración a segundos
-const parseDurationToSeconds = (duration: string): number => {
-  try {
-    const parts = duration.split(' ')
-    let totalSeconds = 0
-    
-    parts.forEach(part => {
-      if (part.includes('h')) {
-        totalSeconds += parseInt(part.replace('h', '')) * 3600
-      } else if (part.includes('m')) {
-        totalSeconds += parseInt(part.replace('m', '')) * 60
-      } else if (part.includes('s')) {
-        totalSeconds += parseInt(part.replace('s', ''))
-      }
-    })
-    
-    return totalSeconds
-  } catch {
-    return 0
-  }
-}
 
 // Función para extraer datos de intervalos desde journeys
 const extractIntervalData = (csvResults: CSVIntervalResult | null, selectedJourneys: Set<number>): IntervalData[] => {
@@ -538,76 +518,111 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
           {/* Brush de navegación simplificado */}
           {speedData.length > 0 && (
             <div 
-              className="mb-3 rounded-lg p-2"
+              className="mb-3 rounded-lg px-2 py-2"
               style={{ backgroundColor: '#4B5463' }}
             >
               <style dangerouslySetInnerHTML={{
                 __html: `
+                  /* Ocultar marco/borde del contenedor del brush */
+                  .brush-container {
+                    border: none !important;
+                    outline: none !important;
+                  }
+                  
                   .brush-container .recharts-brush {
                     background-color: #4B5463 !important;
+                    border: none !important;
+                    outline: none !important;
                   }
+                  
                   .brush-container .recharts-surface {
                     background-color: #4B5463 !important;
+                    border: none !important;
+                    outline: none !important;
                   }
+                  
                   .brush-container .recharts-wrapper {
                     background-color: #4B5463 !important;
+                    border: none !important;
+                    outline: none !important;
                   }
-                  .brush-container .recharts-brush-slide {
-                    fill: #4B5463 !important;
-                    background-color: #4B5463 !important;
-                  }
-                  .brush-container .recharts-brush-texts {
-                    background-color: #4B5463 !important;
-                  }
-                  .brush-container svg {
-                    background-color: #4B5463 !important;
-                  }
-                  .brush-container svg rect {
-                    fill: #4B5463 !important;
-                  }
-                  .brush-container .recharts-brush-slide rect {
-                    fill: #4B5463 !important;
-                  }
-                  .brush-container * {
-                    background-color: #4B5463 !important;
-                  }
+                  
+                  /* Brush slide con bordes redondeados */
                   .brush-container .recharts-brush-slide {
                     fill: #818791 !important;
                     stroke: #A5AAB1 !important;
                     stroke-width: 2px !important;
-                    border: 2px solid #A5AAB1 !important;
+                    rx: 8 !important;
+                    ry: 8 !important;
+                    border-radius: 8px !important;
                   }
+                  
                   .brush-container .recharts-brush-slide:hover {
-                    fill: #818791 !important;
-                    stroke: #A5AAB1 !important;
+                    fill: #9CA3AF !important;
+                    stroke: #D1D5DB !important;
                     stroke-width: 2px !important;
-                    border: 2px solid #A5AAB1 !important;
+                    rx: 8 !important;
+                    ry: 8 !important;
                   }
+                  
                   .brush-container .recharts-brush-slide rect {
                     fill: #818791 !important;
+                    rx: 8 !important;
+                    ry: 8 !important;
+                    border-radius: 8px !important;
                   }
+                  
                   .brush-container .recharts-brush-slide:hover rect {
-                    fill: #818791 !important;
+                    fill: #9CA3AF !important;
+                    rx: 8 !important;
+                    ry: 8 !important;
                   }
+                  
+                  /* Travellers (manejadores) con bordes redondeados */
                   .brush-container .recharts-brush-traveller {
-                    fill: #4B5463 !important;
-                    stroke: #A5AAB1 !important;
+                    fill: #6B7280 !important;
+                    stroke: #D1D5DB !important;
                     stroke-width: 2px !important;
+                    rx: 4 !important;
+                    ry: 4 !important;
+                    border-radius: 4px !important;
                   }
+                  
                   .brush-container .recharts-brush-traveller:hover {
-                    fill: #4B5463 !important;
-                    stroke: #A5AAB1 !important;
+                    fill: #9CA3AF !important;
+                    stroke: #F3F4F6 !important;
                     stroke-width: 2px !important;
+                    rx: 4 !important;
+                    ry: 4 !important;
                   }
+                  
                   .brush-container .recharts-brush-traveller rect {
-                    fill: #4B5463 !important;
-                    stroke: #A5AAB1 !important;
-                    stroke-width: 2px !important;
+                    fill: #6B7280 !important;
+                    stroke: #D1D5DB !important;
+                    stroke-width: 1px !important;
+                    rx: 4 !important;
+                    ry: 4 !important;
+                    border-radius: 4px !important;
                   }
+                  
                   .brush-container .recharts-brush-traveller:hover rect {
-                    fill: #4B5463 !important;
-                    stroke: #A5AAB1 !important;
-                    stroke-width: 2px !important;
+                    fill: #9CA3AF !important;
+                    stroke: #F3F4F6 !important;
+                    stroke-width: 1px !important;
+                    rx: 4 !important;
+                    ry: 4 !important;
+                  }
+                  
+                  /* Ocultar cualquier borde o marco no deseado */
+                  .brush-container svg {
+                    background-color: transparent !important;
+                    border: none !important;
+                    outline: none !important;
+                  }
+                  
+                  .brush-container svg rect:not(.recharts-brush-slide):not(.recharts-brush-traveller rect) {
+                    stroke: none !important;
+                    fill: transparent !important;
                   }
                 `
               }} />
@@ -615,11 +630,11 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                 <ResponsiveContainer width="100%" height={32}>
                   <LineChart 
                     data={scaledSpeedData}
-                    margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
+                    margin={{ top: 1, right: 2, left: 2, bottom: 1 }}
                   >
                     <Brush
                       dataKey="timestamp"
-                      height={28}
+                      height={30}
                       stroke="rgba(255,255,255,0.6)"
                       fill="rgba(255,255,255,0.25)"
                       fillOpacity={1}

@@ -43,7 +43,7 @@ export default function JourneySelector({
   const availableJourneys = csvResults?.success && csvResults.data?.journeys ? csvResults.data.journeys : []
 
   return (
-    <div className="fixed top-4 right-4 z-[999999] interface-component journey-selector" style={{ zIndex: 999999 }}>
+    <div className="fixed top-4 right-4 z-[999999]" style={{ zIndex: 999999 }}>
       <div className="bg-gray-800 rounded-xl shadow-xl border border-gray-700 w-80 h-[calc(100vh-2rem)] relative flex flex-col" style={{ zIndex: 999999, backgroundColor: '#18202F' }}>
         <div className="px-4 pt-4 pb-3 flex-shrink-0">
           {/* Título */}
@@ -102,7 +102,7 @@ export default function JourneySelector({
         </div>
         
         {/* Área de scroll con padding balanceado */}
-        <div className="flex-1 pl-4 pr-2 pb-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent">
+        <div className="flex-1 pl-4 pr-2 pb-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10 hover:scrollbar-thumb-white/50">
           <div className="space-y-2">
             {availableJourneys.length > 0 ? (
               availableJourneys.map((journey) => {

@@ -67,74 +67,32 @@ const { title = "Dashboard", description = "Dashboard de análisis de rutas mar�
     background: hsl(var(--background));
   }
 
-  /* Personalización de la barra de scroll */
-  html {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
-  }
-
-  body {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
-  }
-
-  * {
+  /* Aplicar scrollbar personalizado globalmente */
+  html, body {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
   }
 
   /* Webkit browsers (Chrome, Safari, Edge) */
-  html::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  html::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-  }
-
-  html::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-  }
-
-  html::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-  }
-
+  html::-webkit-scrollbar,
   body::-webkit-scrollbar {
     width: 8px;
   }
 
+  html::-webkit-scrollbar-track,
   body::-webkit-scrollbar-track {
     background: rgba(255, 255, 255, 0.1);
     border-radius: 4px;
   }
 
+  html::-webkit-scrollbar-thumb,
   body::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.3);
     border-radius: 4px;
   }
 
+  html::-webkit-scrollbar-thumb:hover,
   body::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.5);
-  }
-
-  *::-webkit-scrollbar {
-    width: 8px;
-  }
-
-  *::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-  }
-
-  *::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 4px;
-  }
-
-  *::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.5);
   }
 </style>

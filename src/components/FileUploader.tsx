@@ -176,13 +176,7 @@ export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessin
                     {files.length} archivo{files.length !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <div 
-                  className="space-y-2 max-h-40 overflow-y-auto"
-                  style={{ 
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: '#6B7280 transparent'
-                  }}
-                >
+                <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10 hover:scrollbar-thumb-white/50">
                   {files.map((file, index) => (
                     <div
                       key={`${file.name}-${index}`}
