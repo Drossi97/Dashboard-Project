@@ -1,6 +1,6 @@
 import React from "react"
 import { CSVIntervalResult } from "../hooks/useCSVInterval"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Brush } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Brush, Tooltip } from 'recharts'
 import { parseDurationToSeconds } from "../lib/utils"
 
 interface SpeedProfileProps {
@@ -241,6 +241,7 @@ const prepareSpeedDataWithGaps = (csvResults: CSVIntervalResult | null, selected
   
   return allPoints.sort((a, b) => a.timestamp - b.timestamp)
 }
+
 
 const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourneys, isVisible, onClose, onViewChange }) => {
   const [selectedDataPoint, setSelectedDataPoint] = React.useState<SpeedDataPoint | null>(null)
@@ -747,6 +748,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                 <>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
+                    data={zoomedData}
                     margin={{
                         top: 50,
                       right: 30,
@@ -763,6 +765,13 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                     }}
                   >
                     <CartesianGrid strokeDasharray="2 8" stroke="#FFFFFF" strokeOpacity={0.2} strokeWidth={0.5} />
+                    
+                    {/* Sin cursor, solo puntos en las líneas */}
+                    <Tooltip 
+                      content={() => null}
+                      cursor={false}
+                      animationDuration={0}
+                    />
                     
                     <XAxis 
                       dataKey="timestamp" 
@@ -825,18 +834,17 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                         yAxisId="left"
                         type="stepAfter" 
                         dataKey="speed" 
-                        data={zoomedData}
                         stroke="#00BFFF" 
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
                         activeDot={{ 
-                          r: 4, 
+                          r: 5, 
                           fill: '#00BFFF',
                           stroke: '#FFFFFF',
-                          strokeWidth: 1
+                          strokeWidth: 2
                         }}
-                        name="speed"
+                        name="Velocidad"
                         isAnimationActive={false}
                         animationDuration={0}
                       />
@@ -848,18 +856,17 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                         yAxisId="left"
                         type="stepAfter" 
                         dataKey="avgSpeed" 
-                        data={zoomedData}
                         stroke="#00FFFF" 
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
                         activeDot={{ 
-                          r: 4, 
+                          r: 5, 
                           fill: '#00FFFF',
                           stroke: '#FFFFFF',
-                          strokeWidth: 1
+                          strokeWidth: 2
                         }}
-                        name="avgSpeed"
+                        name="Velocidad Media"
                         isAnimationActive={false}
                         animationDuration={0}
                       />
@@ -871,18 +878,17 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                         yAxisId="right"
                         type="stepAfter" 
                         dataKey="stateValueScaled" 
-                        data={zoomedData}
                         stroke="#32CD32" 
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
                         activeDot={{ 
-                          r: 4, 
+                          r: 5, 
                           fill: '#32CD32',
                           stroke: '#FFFFFF',
-                          strokeWidth: 1
+                          strokeWidth: 2
                         }}
-                        name="stateValue"
+                        name="Estado"
                         isAnimationActive={false}
                         animationDuration={0}
                       />
