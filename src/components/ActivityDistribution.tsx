@@ -149,11 +149,11 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
           </div>
 
           {/* Contenido principal */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
             {intervalData.length > 0 ? (
-              <div className="flex gap-6 h-full">
+              <div className="flex gap-4 h-full min-h-0">
                 {/* Pie Chart responsivo */}
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 min-h-0">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -162,8 +162,8 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                         cy="50%"
                         labelLine={false}
                         label={false}
-                        outerRadius={Math.min(180, Math.max(140, 200 - groupByClassification(intervalData).length * 3))}
-                        innerRadius={Math.min(80, Math.max(60, 100 - groupByClassification(intervalData).length * 2))}
+                        outerRadius={Math.min(200, Math.max(160, 220 - groupByClassification(intervalData).length * 3))}
+                        innerRadius={Math.min(90, Math.max(70, 110 - groupByClassification(intervalData).length * 2))}
                         fill="#8884d8"
                         dataKey="duration"
                         onMouseEnter={(data, index) => setHoveredIndex(index)}
@@ -187,21 +187,27 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                 </div>
                 
                 {/* Leyenda responsiva */}
-                <div className={`flex-shrink-0 ${groupByClassification(intervalData).length > 6 ? 'w-64' : 'w-72'}`}>
-                  <div className={`space-y-2 ${groupByClassification(intervalData).length > 8 ? 'max-h-96 overflow-y-auto' : ''}`}>
+                <div className={`flex-shrink-0 flex flex-col ${groupByClassification(intervalData).length > 6 ? 'w-80' : 'w-96'}`}>
+                  {/* Lista de actividades con scroll */}
+                  <div className={`flex-shrink-0 ${groupByClassification(intervalData).length > 8 ? 'space-y-1 max-h-[calc(100vh-32rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10 hover:scrollbar-thumb-white/50 pr-2' : 'space-y-2'}`}>
                     {groupByClassification(intervalData).map((entry, index) => (
                       <div 
                         key={index} 
-                        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                        className={`flex items-start rounded-lg cursor-pointer transition-all duration-200 ${
+                          groupByClassification(intervalData).length > 8 ? 'gap-1.5 p-1.5' : 'gap-2 p-2'
+                        } ${
                           hoveredIndex === index 
-                            ? 'bg-gray-700 scale-105 shadow-lg' 
+                            ? 'bg-gray-700 scale-[1.02] shadow-lg' 
                             : 'hover:bg-gray-800'
                         }`}
                         onMouseEnter={() => setHoveredIndex(index)}
                         onMouseLeave={() => setHoveredIndex(null)}
+                        title={entry.name} // Tooltip nativo para mostrar texto completo
                       >
              <div 
-               className={`w-4 h-4 rounded-full flex-shrink-0 transition-all duration-200 ${
+               className={`rounded-full flex-shrink-0 transition-all duration-200 ${
+                 groupByClassification(intervalData).length > 8 ? 'w-2.5 h-2.5 mt-0.5' : 'w-3 h-3 mt-1'
+               } ${
                  hoveredIndex === index ? 'scale-110 shadow-md' : ''
                }`}
                style={{ 
@@ -210,16 +216,16 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                  boxShadow: hoveredIndex === index ? `0 0 8px ${entry.color}40` : 'none'
                }}
              ></div>
-                        <div className="flex flex-col min-w-0">
-                          <span className={`font-medium truncate transition-colors duration-200 ${
-                            groupByClassification(intervalData).length > 8 ? 'text-sm' : 'text-base'
+                        <div className="flex flex-col min-w-0 flex-1">
+                          <span className={`font-medium break-words transition-colors duration-200 leading-tight ${
+                            groupByClassification(intervalData).length > 8 ? 'text-xs' : 'text-sm'
                           } ${
                             hoveredIndex === index ? 'text-white' : 'text-gray-300'
                           }`}>
                             {entry.name}
                           </span>
-                          <span className={`transition-colors duration-200 ${
-                            groupByClassification(intervalData).length > 8 ? 'text-sm' : 'text-sm'
+                          <span className={`transition-colors duration-200 mt-0.5 ${
+                            groupByClassification(intervalData).length > 8 ? 'text-xs' : 'text-xs'
                           } ${
                             hoveredIndex === index ? 'text-gray-200' : 'text-gray-400'
                           }`}>
@@ -231,12 +237,12 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                   </div>
                   
                   {/* Tiempo total */}
-                  <div className="mt-6 pt-4 border-t border-gray-600">
-                    <div className="flex items-center gap-3">
-                      <div className="w-4 h-4 bg-gray-500 rounded-md flex-shrink-0"></div>
+                  <div className="mt-4 pt-3 border-t border-gray-600">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-gray-500 rounded-md flex-shrink-0"></div>
                       <div className="flex flex-col min-w-0">
-                        <span className="text-gray-200 font-semibold text-base">Tiempo Total</span>
-                        <span className="text-gray-300 text-sm">
+                        <span className="text-gray-200 font-semibold text-sm">Tiempo Total</span>
+                        <span className="text-gray-300 text-xs">
                           {formatDuration(intervalData.reduce((total, interval) => total + interval.durationInSeconds, 0))}
                         </span>
                       </div>
@@ -244,19 +250,19 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                   </div>
 
                   {/* Estadísticas adicionales */}
-                  <div className="mt-4 pt-4 border-t border-gray-600">
-                    <div className="space-y-2">
+                  <div className="mt-3 pt-3 border-t border-gray-600">
+                    <div className="space-y-1.5">
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-sm">Total de Intervalos:</span>
-                        <span className="text-white font-semibold text-sm">{intervalData.length}</span>
+                        <span className="text-gray-400 text-xs">Total de Intervalos:</span>
+                        <span className="text-white font-semibold text-xs">{intervalData.length}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-sm">Tipos de Actividad:</span>
-                        <span className="text-white font-semibold text-sm">{groupByClassification(intervalData).length}</span>
+                        <span className="text-gray-400 text-xs">Tipos de Actividad:</span>
+                        <span className="text-white font-semibold text-xs">{groupByClassification(intervalData).length}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-sm">Trayectos Seleccionados:</span>
-                        <span className="text-white font-semibold text-sm">{selectedJourneys.size}</span>
+                        <span className="text-gray-400 text-xs">Trayectos Seleccionados:</span>
+                        <span className="text-white font-semibold text-xs">{selectedJourneys.size}</span>
                       </div>
                     </div>
                   </div>
