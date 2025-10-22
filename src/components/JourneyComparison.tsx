@@ -255,7 +255,7 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
         {/* Trayectos A */}
             <div className="rounded-lg p-3 sm:p-4" style={{ backgroundColor: '#2D3748' }}>
           <h3 className="text-lg font-semibold mb-4 text-blue-400">Trayectos A</h3>
-          <div className="border-b border-gray-600 mb-4"></div>
+          <div className="border-b mb-4" style={{ borderBottomWidth: '1px', borderBottomColor: '#4B5563' }}></div>
           <div className="space-y-2 max-h-48 overflow-y-auto comparison-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {availableJourneys.length === 0 ? (
               <div className="text-sm p-2" style={{ color: '#9CA3AF' }}>No hay trayectos seleccionados</div>
@@ -291,7 +291,7 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
         {/* Trayectos B */}
             <div className="rounded-lg p-3 sm:p-4" style={{ backgroundColor: '#2D3748' }}>
           <h3 className="text-lg font-semibold mb-4 text-red-400">Trayectos B</h3>
-          <div className="border-b border-gray-600 mb-4"></div>
+          <div className="border-b mb-4" style={{ borderBottomWidth: '1px', borderBottomColor: '#4B5563' }}></div>
           <div className="space-y-2 max-h-48 overflow-y-auto comparison-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {availableJourneys.length === 0 ? (
               <div className="text-sm p-2" style={{ color: '#9CA3AF' }}>No hay trayectos seleccionados</div>
@@ -369,7 +369,7 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
                      <span>{formatDuration(totalDurationA)}</span>
                    </div>
                  )}
-                 <div className="border-b border-white mb-2"></div>
+                 <div className="border-b mb-2" style={{ borderBottomWidth: '1px', borderBottomColor: '#4B5563' }}></div>
                  {intervalDataGroupA.map((item, index) => (
                    <div 
                      key={index} 
@@ -445,7 +445,7 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
                      <span>{formatDuration(totalDurationB)}</span>
                    </div>
                  )}
-                 <div className="border-b border-white mb-2"></div>
+                 <div className="border-b mb-2" style={{ borderBottomWidth: '1px', borderBottomColor: '#4B5563' }}></div>
                  {intervalDataGroupB.map((item, index) => (
                    <div 
                      key={index} 
