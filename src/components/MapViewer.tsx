@@ -294,10 +294,10 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                     <div style="color: #DC2626; font-weight: 600; font-size: 12px; margin-bottom: 4px; text-align: center; background-color: #FEE2E2; padding: 6px; border-radius: 4px;">
                       FINAL DE TRAYECTO ${journeyIndex}
                     </div>
-                    <div style="color: #6B7280; font-size: 11px; margin-bottom: 3px;">
+                    <div style="color: #9CA3AF; font-size: 11px; margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Tiempo:</span> ${pointTime} - ${date}
                     </div>
-                    <div style="color: #6B7280; font-size: 11px; margin-bottom: 3px;">
+                    <div style="color: #9CA3AF; font-size: 11px; margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Velocidad:</span> <span style="color: #3B82F6; font-weight: bold;">${pointSpeed}</span>
                     </div>
                   </div>
@@ -309,16 +309,16 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                   <!-- Datos del punto específico (arriba) -->
                   <div style="border-bottom: 1px solid #E5E7EB; padding-bottom: 8px; margin-bottom: 8px;">
                      <div style="color: #374151; font-weight: 600; font-size: 12px; margin-bottom: 4px;">POSICIÓN (${pointLatLng.lat.toFixed(6)}, ${pointLatLng.lng.toFixed(6)})</div>
-                    <div style="color: #6B7280; font-size: 11px; margin-bottom: 3px;">
+                    <div style="color: #9CA3AF; font-size: 11px; margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Tiempo:</span> ${pointTime} - ${date}
                     </div>
-                    <div style="color: #6B7280; font-size: 11px; margin-bottom: 3px;">
+                    <div style="color: #9CA3AF; font-size: 11px; margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Velocidad:</span> <span style="color: #3B82F6; font-weight: bold;">${pointSpeed}</span>
                     </div>
                     </div>
                     
                   <!-- Datos del intervalo completo (abajo) -->
-                  <div style="font-size: 11px; color: #6B7280;">
+                  <div style="font-size: 11px; color: #9CA3AF;">
                      <div style="color: #374151; font-weight: 600; font-size: 12px; margin-bottom: 4px;">INTERVALO ${interval.intervalNumber} - TRAYECTO ${journeyIndex}</div>
                     <div style="margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Velocidad Media:</span> 
@@ -332,7 +332,7 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                     <div style="margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Actividad:</span> ${interval.classificationType || 'N/A'}
                       </div>
-                    <div style="color: #6B7280; font-size: 11px; margin-bottom: 3px;">
+                    <div style="color: #9CA3AF; font-size: 11px; margin-bottom: 3px;">
                       <span style="color: #374151; font-weight: 500;">Duración:</span> ${formatDuration(interval.duration)} (${startTime} → ${endTime})
                     </div>
                   </div>

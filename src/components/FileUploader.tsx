@@ -99,6 +99,24 @@ export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessin
 
   return (
     <div className="relative z-[10000]">
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .file-scroll::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+          }
+          .file-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .file-scroll::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 4px;
+          }
+          .file-scroll::-webkit-scrollbar-thumb:hover {
+            background: transparent;
+          }
+        `
+      }} />
       {/* Fondo con blur y overlay */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-sm rounded-2xl"></div>
       
@@ -176,7 +194,7 @@ export function FileUploader({ files, onFilesChange, onProcessFiles, isProcessin
                     {files.length} archivo{files.length !== 1 ? 's' : ''}
                   </span>
                 </div>
-                <div className="space-y-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10 hover:scrollbar-thumb-white/50">
+                <div className="space-y-2 max-h-40 overflow-y-auto file-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                   {files.map((file, index) => (
                     <div
                       key={`${file.name}-${index}`}

@@ -1,6 +1,6 @@
 import React from "react"
 import { CSVIntervalResult } from "../hooks/useCSVInterval"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Brush } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, ReferenceLine, Brush, Tooltip } from 'recharts'
 import { parseDurationToSeconds } from "../lib/utils"
 
 interface SpeedProfileProps {
@@ -8,7 +8,7 @@ interface SpeedProfileProps {
   selectedJourneys: Set<number>
   isVisible: boolean
   onClose: () => void
-  onViewChange?: (view: 'speed' | 'activity') => void
+  onViewChange?: (view: 'speed' | 'activity' | 'comparison') => void
 }
 
 interface IntervalData {
@@ -414,6 +414,56 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
     return ticks
   }, [zoomedData])
 
+  // Eje para Trayectos: ticks en el INICIO de cada segmento (sincronizado con zoom)
+  const { journeyTicks, journeyLabelMap } = React.useMemo(() => {
+    const ticks: number[] = []
+    const labelMap = new Map<number, string>()
+    const data = zoomedData.filter(p => p.journeyIndex !== -1)
+    if (data.length === 0) return { journeyTicks: ticks, journeyLabelMap: labelMap }
+
+    let currentJourney = data[0].journeyIndex
+    // Primer segmento: añadir etiqueta al inicio
+    ticks.push(data[0].timestamp)
+    labelMap.set(data[0].timestamp, `T${currentJourney}`)
+
+    for (let i = 1; i < data.length; i++) {
+      const p = data[i]
+      if (p.journeyIndex !== currentJourney) {
+        // Nuevo trayecto: etiquetar en el inicio de este segmento
+        ticks.push(p.timestamp)
+        labelMap.set(p.timestamp, `T${p.journeyIndex}`)
+        currentJourney = p.journeyIndex
+      }
+    }
+
+    return { journeyTicks: ticks, journeyLabelMap: labelMap }
+  }, [zoomedData])
+
+  // Eje para Intervalos: ticks en el INICIO de cada segmento (sincronizado con zoom)
+  const { intervalTicks, intervalLabelMap } = React.useMemo(() => {
+    const ticks: number[] = []
+    const labelMap = new Map<number, string>()
+    const data = zoomedData.filter(p => p.intervalNumber !== -1)
+    if (data.length === 0) return { intervalTicks: ticks, intervalLabelMap: labelMap }
+
+    let currentInterval = data[0].intervalNumber
+    // Primer segmento: añadir etiqueta al inicio
+    ticks.push(data[0].timestamp)
+    labelMap.set(data[0].timestamp, `${currentInterval}`)
+
+    for (let i = 1; i < data.length; i++) {
+      const p = data[i]
+      if (p.intervalNumber !== currentInterval) {
+        // Nuevo intervalo: etiquetar en el inicio de este segmento
+        ticks.push(p.timestamp)
+        labelMap.set(p.timestamp, `${p.intervalNumber}`)
+        currentInterval = p.intervalNumber
+      }
+    }
+
+    return { intervalTicks: ticks, intervalLabelMap: labelMap }
+  }, [zoomedData])
+
   // Función para interpolación suave del cursor
   const getInterpolatedTimestamp = React.useCallback((mouseX: number, chartWidth: number, data: any[]) => {
     if (data.length === 0) return null
@@ -475,7 +525,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
 
   return (
     <div className="fixed top-4 left-4 z-[999998] dashboard-component">
-      <div className="w-[calc(100vw-23rem)] max-w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] rounded-xl p-4 shadow-2xl border border-gray-700 overflow-hidden" style={{ backgroundColor: '#18202F' }}>
+      <div className="w-[calc(100vw-23rem)] max-w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] rounded-xl p-4 shadow-2xl border border-gray-700 overflow-hidden" style={{ backgroundColor: '#1F2937' }}>
         <div className="flex flex-col h-full">
           {/* Encabezado con pestañas y botón de cerrar */}
           <div className="flex items-center justify-between mb-4">
@@ -483,7 +533,8 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
             {onViewChange && (
               <div className="flex bg-gray-800 rounded-lg p-1">
                 <button
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-md shadow-sm transition-all duration-200"
+                  className="flex items-center gap-2 px-4 py-2 text-white text-sm rounded-md shadow-sm transition-all duration-200"
+                  style={{ backgroundColor: '#2563EB' }}
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -499,6 +550,15 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
                   </svg>
                   Distribución de Actividades
+                </button>
+                <button
+                  onClick={() => onViewChange('comparison')}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-700 text-sm rounded-md transition-all duration-200"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Comparación de Trayectos
                 </button>
               </div>
             )}
@@ -519,7 +579,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
           {speedData.length > 0 && (
             <div 
               className="mb-3 rounded-lg px-2 py-2"
-              style={{ backgroundColor: '#4B5463' }}
+              style={{ backgroundColor: '#2D3748' }}
             >
               <style dangerouslySetInnerHTML={{
                 __html: `
@@ -530,19 +590,19 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   }
                   
                   .brush-container .recharts-brush {
-                    background-color: #4B5463 !important;
+                    background-color: #2D3748 !important;
                     border: none !important;
                     outline: none !important;
                   }
                   
                   .brush-container .recharts-surface {
-                    background-color: #4B5463 !important;
+                    background-color: #2D3748 !important;
                     border: none !important;
                     outline: none !important;
                   }
                   
                   .brush-container .recharts-wrapper {
-                    background-color: #4B5463 !important;
+                    background-color: #2D3748 !important;
                     border: none !important;
                     outline: none !important;
                   }
@@ -580,7 +640,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   
                   /* Travellers (manejadores) con bordes redondeados */
                   .brush-container .recharts-brush-traveller {
-                    fill: #6B7280 !important;
+                    fill: #2D3748 !important;
                     stroke: #D1D5DB !important;
                     stroke-width: 2px !important;
                     rx: 4 !important;
@@ -589,7 +649,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   }
                   
                   .brush-container .recharts-brush-traveller:hover {
-                    fill: #9CA3AF !important;
+                    fill: #374151 !important;
                     stroke: #F3F4F6 !important;
                     stroke-width: 2px !important;
                     rx: 4 !important;
@@ -597,7 +657,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   }
                   
                   .brush-container .recharts-brush-traveller rect {
-                    fill: #6B7280 !important;
+                    fill: #2D3748 !important;
                     stroke: #D1D5DB !important;
                     stroke-width: 1px !important;
                     rx: 4 !important;
@@ -606,7 +666,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   }
                   
                   .brush-container .recharts-brush-traveller:hover rect {
-                    fill: #9CA3AF !important;
+                    fill: #374151 !important;
                     stroke: #F3F4F6 !important;
                     stroke-width: 1px !important;
                     rx: 4 !important;
@@ -638,7 +698,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       stroke="rgba(255,255,255,0.6)"
                       fill="rgba(255,255,255,0.25)"
                       fillOpacity={1}
-                      onChange={handleBrushChange}
+                      onChange={() => {}} // Desactivar funcionalidad de click
                       startIndex={shouldResetView ? 0 : (brushRange ? brushRange[0] : 0)}
                       endIndex={shouldResetView ? scaledSpeedData.length - 1 : (brushRange ? brushRange[1] : scaledSpeedData.length - 1)}
                       tickFormatter={() => ''}
@@ -650,16 +710,16 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
           )}
 
           {/* Gráfica principal */}
-          <div className="rounded-xl p-3 border border-gray-800 flex-1 min-h-0 overflow-hidden" style={{ backgroundColor: '#4B5463' }}>
+          <div className="rounded-xl p-3 border border-gray-800 flex-1 min-h-0 overflow-hidden" style={{ backgroundColor: '#2D3748' }}>
             {/* Leyenda integrada */}
             <div className="flex items-center justify-center gap-4 mb-3 flex-wrap">
               <button
                 onClick={() => setShowSpeedLine(!showSpeedLine)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all duration-200 hover:bg-white/10"
+                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-colors duration-200"
               >
                 <div 
                   className="w-3 h-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: showSpeedLine ? '#00BFFF' : '#6B7280' }}
+                  style={{ backgroundColor: showSpeedLine ? '#00BFFF' : '#2D3748' }}
                 ></div>
                 <span 
                   className="text-xs font-medium whitespace-nowrap"
@@ -671,11 +731,11 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
               
               <button
                 onClick={() => setShowAvgSpeedLine(!showAvgSpeedLine)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all duration-200 hover:bg-white/10"
+                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-colors duration-200"
               >
                 <div 
                   className="w-3 h-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: showAvgSpeedLine ? '#00FFFF' : '#6B7280' }}
+                  style={{ backgroundColor: showAvgSpeedLine ? '#00FFFF' : '#2D3748' }}
                 ></div>
                 <span 
                   className="text-xs font-medium whitespace-nowrap"
@@ -687,11 +747,11 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
               
               <button
                 onClick={() => setShowStateLine(!showStateLine)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all duration-200 hover:bg-white/10"
+                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-colors duration-200"
               >
                 <div 
                   className="w-3 h-0.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: showStateLine ? '#32CD32' : '#6B7280' }}
+                  style={{ backgroundColor: showStateLine ? '#32CD32' : '#2D3748' }}
                 ></div>
                 <span 
                   className="text-xs font-medium whitespace-nowrap"
@@ -705,12 +765,12 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
 
               <button
                 onClick={() => setShowJourneyLines(!showJourneyLines)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all duration-200 hover:bg-white/10"
+                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-colors duration-200"
               >
                 <div 
                   className="w-3 h-0.5 rounded-full flex-shrink-0"
                   style={{ 
-                    backgroundColor: showJourneyLines ? '#FF6B6B' : '#6B7280',
+                    backgroundColor: showJourneyLines ? '#FF6B6B' : '#2D3748',
                     backgroundImage: showJourneyLines ? 'repeating-linear-gradient(90deg, #FF6B6B 0px, #FF6B6B 5px, transparent 5px, transparent 10px)' : 'none'
                   }}
                 ></div>
@@ -724,12 +784,12 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
 
               <button
                 onClick={() => setShowIntervalLines(!showIntervalLines)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all duration-200 hover:bg-white/10"
+                className="flex items-center gap-2 px-2 py-1 rounded-lg transition-colors duration-200"
               >
                 <div 
                   className="w-3 h-0.5 rounded-full flex-shrink-0"
                   style={{ 
-                    backgroundColor: showIntervalLines ? '#FFA500' : '#6B7280',
+                    backgroundColor: showIntervalLines ? '#FFA500' : '#2D3748',
                     backgroundImage: showIntervalLines ? 'repeating-linear-gradient(90deg, #FFA500 0px, #FFA500 3px, transparent 3px, transparent 6px)' : 'none'
                   }}
                 ></div>
@@ -742,16 +802,18 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
               </button>
             </div>
             
-            <div className="h-[calc(100%-3rem)] min-h-0 relative">
+            <div className="h-[calc(100%-3rem)] min-h-0 relative flex flex-col">
               {speedData.length > 0 ? (
                 <>
+                <div className="flex-1">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
+                    data={zoomedData}
                     margin={{
                         top: 50,
                       right: 30,
                         left: 0,
-                      bottom: 20,
+                      bottom: 50,
                     }}
                     onMouseMove={(chartState, event) => {
                       if (chartState && chartState.activePayload && chartState.activePayload.length > 0) {
@@ -762,8 +824,25 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       setSelectedDataPoint(null)
                     }}
                   >
+                    {/* Cursor vertical */}
+                    <defs>
+                      <filter id="glow">
+                        <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                        <feMerge>
+                          <feMergeNode in="coloredBlur"/>
+                          <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                      </filter>
+                    </defs>
                     <CartesianGrid strokeDasharray="2 8" stroke="#FFFFFF" strokeOpacity={0.2} strokeWidth={0.5} />
                     
+                    {/* Tooltip para activar los puntos sin mostrar cursor */}
+                    <Tooltip
+                      cursor={false}
+                      content={() => null}
+                    />
+                    
+                    {/* Eje principal X: Tiempo (inferior) */}
                     <XAxis 
                       dataKey="timestamp" 
                       type="number" 
@@ -773,8 +852,9 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       fontSize={11}
                       tick={{ fill: '#FFFFFF' }}
                       tickCount={8}
-                      domain={['dataMin', 'dataMax']}
+                      domain={['auto', 'auto']}
                       ticks={xAxisTicks}
+                      label={undefined}
                       tickFormatter={(value) => {
                         const date = new Date(value)
                         return date.toLocaleTimeString('es-ES', { 
@@ -783,6 +863,38 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                           hour12: false 
                         })
                       }}
+                    />
+                    
+                    {/* Eje superior: Intervalos (más cerca del gráfico) */}
+                    <XAxis
+                      xAxisId="intervalAxis"
+                      dataKey="timestamp"
+                      type="number"
+                      scale="linear"
+                      orientation="top"
+                      axisLine={{ stroke: '#FFA500', strokeWidth: 1 }}
+                      tickLine={{ stroke: '#FFA500', strokeWidth: 1 }}
+                      tick={{ fill: '#FFA500', fontSize: 10, fontWeight: 600 }}
+                      domain={['auto', 'auto']}
+                      ticks={intervalTicks}
+                      tickFormatter={(value) => intervalLabelMap.get(value as number) || ''}
+                      allowDataOverflow={true}
+                    />
+
+                    {/* Eje superior: Trayectos (más arriba) */}
+                    <XAxis
+                      xAxisId="journeyAxis"
+                      dataKey="timestamp"
+                      type="number"
+                      scale="linear"
+                      orientation="top"
+                      axisLine={{ stroke: '#FF6B6B', strokeWidth: 1 }}
+                      tickLine={{ stroke: '#FF6B6B', strokeWidth: 1 }}
+                      tick={{ fill: '#FF6B6B', fontSize: 10, fontWeight: 600, dy: -15 }}
+                      domain={['auto', 'auto']}
+                      ticks={journeyTicks}
+                      tickFormatter={(value) => journeyLabelMap.get(value as number) || ''}
+                      allowDataOverflow={true}
                     />
                     
                     
@@ -812,9 +924,9 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       domain={stateAxisConfig.domain}
                       ticks={stateAxisConfig.ticks}
                       tickFormatter={(value) => {
-                        if (value === 0) return 'Parado (0.0)'
-                        if (value === 10) return 'Maniobrando (1.0)'
-                        if (value === 20) return 'Navegando (2.0)'
+                        if (value === 0) return 'Parado'
+                        if (value === 10) return 'Maniobrando'
+                        if (value === 20) return 'Navegando'
                         return ''
                       }}
                     />
@@ -825,16 +937,15 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                         yAxisId="left"
                         type="stepAfter" 
                         dataKey="speed" 
-                        data={zoomedData}
                         stroke="#00BFFF" 
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
                         activeDot={{ 
-                          r: 4, 
+                          r: 6, 
                           fill: '#00BFFF',
-                          stroke: '#FFFFFF',
-                          strokeWidth: 1
+                          stroke: 'none',
+                          strokeWidth: 0
                         }}
                         name="speed"
                         isAnimationActive={false}
@@ -848,16 +959,15 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                         yAxisId="left"
                         type="stepAfter" 
                         dataKey="avgSpeed" 
-                        data={zoomedData}
                         stroke="#00FFFF" 
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
                         activeDot={{ 
-                          r: 4, 
+                          r: 6, 
                           fill: '#00FFFF',
-                          stroke: '#FFFFFF',
-                          strokeWidth: 1
+                          stroke: 'none',
+                          strokeWidth: 0
                         }}
                         name="avgSpeed"
                         isAnimationActive={false}
@@ -871,16 +981,15 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                         yAxisId="right"
                         type="stepAfter" 
                         dataKey="stateValueScaled" 
-                        data={zoomedData}
                         stroke="#32CD32" 
                         strokeWidth={2}
                         dot={false}
                         connectNulls={false}
                         activeDot={{ 
-                          r: 4, 
+                          r: 6, 
                           fill: '#32CD32',
-                          stroke: '#FFFFFF',
-                          strokeWidth: 1
+                          stroke: 'none',
+                          strokeWidth: 0
                         }}
                         name="stateValue"
                         isAnimationActive={false}
@@ -898,21 +1007,17 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                         strokeWidth={2} 
                         strokeOpacity={0.8}
                         strokeDasharray={change.type === 'journey' ? '5 5' : '3 3'}
-                        label={{
-                          value: change.label,
-                          position: change.type === 'journey' ? 'top' : 'top',
-                          offset: change.type === 'journey' ? 35 : 5,
-                          style: {
-                            fill: change.type === 'journey' ? '#FF6B6B' : '#FFA500',
-                            fontSize: change.type === 'journey' ? '12px' : '10px',
-                            fontWeight: 'bold'
-                          }
-                        }}
                       />
                     ))}
 
                   </LineChart>
                 </ResponsiveContainer>
+                </div>
+                
+                {/* Etiqueta del eje X */}
+                <div className="flex justify-center -mt-8">
+                  <span className="text-white text-xs font-normal">Hora (HH:MM)</span>
+                </div>
                   
                 </>
               ) : (
@@ -924,7 +1029,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       </svg>
                     </div>
                     <h4 className="text-lg font-semibold text-white mb-2">Sin datos de velocidad</h4>
-                    <p className="text-gray-400">Selecciona trayectos para ver el análisis</p>
+                    <p style={{ color: '#9CA3AF' }}>Selecciona trayectos para ver el análisis</p>
                   </div>
                 </div>
               )}
@@ -933,67 +1038,88 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
 
           {/* Paneles de estadísticas */}
           <div className="grid grid-cols-4 gap-3 h-20 mt-4 mb-4">
-            {/* Panel 1: Velocidad del Punto */}
-            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
+            {/* Panel 1: Información (4 métricas en 2x2) */}
+            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#2D3748' }}>
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 bg-blue-300 rounded-full"></div>
-                <h4 className="text-blue-100 font-semibold text-xs">Velocidad</h4>
+                <h4 className="text-blue-100 font-semibold text-xs">Información</h4>
               </div>
-              <div className="space-y-0.5 text-center">
-                <p className="text-blue-50 text-base font-bold">
-                  {(() => {
-                    const dataPoint = selectedDataPoint || speedData[0]
-                    if (dataPoint?.classificationType === 'GAP' || dataPoint?.speed === null) {
-                      return '--.--'
-                    }
-                    return dataPoint?.speed?.toFixed(2) || '--.--'
-                  })()} nudos
-                </p>
-                <p className="text-blue-100 text-xs">
-                  {(() => {
-                    const dataPoint = selectedDataPoint || speedData[0]
-                    if (dataPoint?.classificationType === 'GAP' || dataPoint?.timestamp === null) {
-                      return '--.--'
-                    }
-                    if (dataPoint?.timestamp) {
-                      const time = new Date(dataPoint.timestamp)
-                      return time.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h'
-                    }
-                    return '--.--'
-                  })()}
-                </p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-center">
+                {/* Celda: Velocidad */}
+                <div>
+                  <div className="text-blue-50 text-sm">
+                    {(() => {
+                      const p = selectedDataPoint || speedData[0]
+                      if (p?.classificationType === 'GAP' || p?.speed == null) return '--.-- nudos'
+                      return `${p.speed.toFixed(2)} nudos`
+                    })()}
+                  </div>
+                </div>
+                {/* Celda: Hora */}
+                <div>
+                  <div className="text-blue-50 text-sm">
+                    {(() => {
+                      const p = selectedDataPoint || speedData[0]
+                      if (p?.classificationType === 'GAP' || !p?.timestamp) return '--.--'
+                      const t = new Date(p.timestamp)
+                      return t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h'
+                    })()}
+                  </div>
+                </div>
+                {/* Celda: Trayecto */}
+                <div>
+                  <div className="text-blue-50 text-sm">
+                    {(() => {
+                      const p = selectedDataPoint || speedData[0]
+                      if (!p || p.journeyIndex === -1 || p.classificationType === 'GAP') return '--'
+                      return `Trayecto ${p.journeyIndex}`
+                    })()}
+                  </div>
+                </div>
+                {/* Celda: Intervalo */}
+                <div>
+                  <div className="text-blue-50 text-sm">
+                    {(() => {
+                      const p = selectedDataPoint || speedData[0]
+                      if (!p || p.intervalNumber === -1 || p.classificationType === 'GAP') return '--'
+                      return `Intervalo ${p.intervalNumber}`
+                    })()}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Panel 2: Velocidad Media del Intervalo */}
-            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
+            <div className="rounded-xl py-2 px-3 flex flex-col justify-between" style={{ backgroundColor: '#2D3748' }}>
               <div className="flex items-center gap-2 mb-1">
                  <div className="w-2 h-2 bg-cyan-300 rounded-full"></div>
                  <h4 className="text-cyan-100 font-semibold text-xs">
-                   Velocidad Media - Intervalo #{((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
+                   Velocidad Media - Intervalo {((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
                  </h4>
               </div>
-              <p className="text-cyan-50 text-base font-bold text-center">
-                {(() => {
-                  const dataPoint = selectedDataPoint || speedData[0]
-                  if (dataPoint?.classificationType === 'GAP' || dataPoint?.avgSpeed === null) {
-                    return '--.--'
-                  }
-                  return dataPoint?.avgSpeed?.toFixed(2) || '--.--'
-                })()} nudos
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-cyan-50 text-base text-center">
+                  {(() => {
+                    const dataPoint = selectedDataPoint || speedData[0]
+                    if (dataPoint?.classificationType === 'GAP' || dataPoint?.avgSpeed === null) {
+                      return '--.--'
+                    }
+                    return dataPoint?.avgSpeed?.toFixed(2) || '--.--'
+                  })()} nudos
                 </p>
+              </div>
             </div>
 
             {/* Panel 3: Tiempo del Intervalo */}
-            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
+            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#2D3748' }}>
               <div className="flex items-center gap-2 mb-1">
                  <div className="w-2 h-2 bg-blue-300 rounded-full"></div>
                  <h4 className="text-blue-100 font-semibold text-xs">
-                   Duración - Intervalo #{((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
+                   Duración - Intervalo {((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
                  </h4>
               </div>
               <div className="space-y-0.5 text-center">
-                <p className="text-blue-50 text-sm font-bold">
+                <p className="text-blue-50 text-sm">
                   {(() => {
                     const dataPoint = selectedDataPoint || speedData[0]
                     if (dataPoint?.classificationType === 'GAP' || dataPoint?.startTime === 'GAP') {
@@ -1034,15 +1160,15 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
             </div>
 
             {/* Panel 4: Actividad */}
-            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#4B5463' }}>
+            <div className="rounded-xl py-2 px-3 flex flex-col justify-between" style={{ backgroundColor: '#2D3748' }}>
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 bg-emerald-300 rounded-full"></div>
                  <h4 className="text-emerald-100 font-semibold text-xs">
-                   Actividad del Barco - Intervalo #{((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
+                   Actividad del Barco - Intervalo {((selectedDataPoint || speedData[0])?.intervalNumber || '0')}
                  </h4>
               </div>
-               <div className="text-center">
-                <p className="text-emerald-50 text-sm">
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-emerald-50 text-base text-center">
                    {(() => {
                      const dataPoint = selectedDataPoint || speedData[0]
                      if (dataPoint?.classificationType === 'GAP') {

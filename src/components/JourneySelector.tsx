@@ -7,7 +7,7 @@ interface JourneySelectorProps {
   selectedJourneys: Set<number>
   onToggleJourney: (journeyIndex: number) => void
   onShowStats: () => void
-  onStatsViewChange: (view: 'speed' | 'activity') => void
+  onStatsViewChange: (view: 'speed' | 'activity' | 'comparison') => void
   onSelectAll: () => void
   onDeselectAll: () => void
 }
@@ -44,7 +44,25 @@ export default function JourneySelector({
 
   return (
     <div className="fixed top-4 right-4 z-[999999]" style={{ zIndex: 999999 }}>
-      <div className="bg-gray-800 rounded-xl shadow-xl border border-gray-700 w-80 h-[calc(100vh-2rem)] relative flex flex-col" style={{ zIndex: 999999, backgroundColor: '#18202F' }}>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .journey-scroll::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+          }
+          .journey-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .journey-scroll::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 4px;
+          }
+          .journey-scroll::-webkit-scrollbar-thumb:hover {
+            background: transparent;
+          }
+        `
+      }} />
+      <div className="bg-gray-800 rounded-xl shadow-xl border border-gray-700 w-80 h-[calc(100vh-2rem)] relative flex flex-col" style={{ zIndex: 999999, backgroundColor: '#1F2937' }}>
         <div className="px-4 pt-4 pb-3 flex-shrink-0">
           {/* Título */}
           <div className="mb-2 text-center">
@@ -102,7 +120,13 @@ export default function JourneySelector({
         </div>
         
         {/* Área de scroll con padding balanceado */}
-        <div className="flex-1 pl-4 pr-2 pb-4 overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10 hover:scrollbar-thumb-white/50">
+        <div 
+          className="flex-1 pl-4 pr-4 pb-4 overflow-y-auto journey-scroll" 
+          style={{ 
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none'
+          }}
+        >
           <div className="space-y-2">
             {availableJourneys.length > 0 ? (
               availableJourneys.map((journey) => {
@@ -138,12 +162,12 @@ export default function JourneySelector({
                   <div
                     key={journey.journeyIndex}
                     onClick={() => onToggleJourney(journey.journeyIndex)}
-                    className={`w-full rounded-xl transition-all duration-200 border-2 overflow-hidden cursor-pointer ${
+                    className={`w-full rounded-xl transition-all duration-200 overflow-hidden cursor-pointer ${
                       isSelected
-                        ? 'text-gray-300 border-gray-600'
-                        : 'text-gray-300 border-gray-600'
+                        ? 'text-gray-300'
+                        : 'text-gray-300'
                     }`}
-                    style={{ backgroundColor: '#4B5463' }}
+                    style={{ backgroundColor: '#2D3748' }}
                   >
                     <div className={`w-full text-left px-3 py-2 transition-colors`}
                       style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent' }}

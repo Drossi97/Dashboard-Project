@@ -5,13 +5,14 @@ import MapViewer, { MapViewerRef } from "./MapViewer"
 import JourneySelector from "./JourneySelector"
 import SpeedProfile from "./SpeedProfile"
 import ActivityDistribution from "./ActivityDistribution"
+import JourneyComparison from "./JourneyComparison"
 
 export default function App() {
   const [files, setFiles] = useState<File[]>([])
   const [showUploader, setShowUploader] = useState(true)
   const [selectedJourneys, setSelectedJourneys] = useState<Set<number>>(new Set())
   const [showStats, setShowStats] = useState(false)
-  const [activeStatsView, setActiveStatsView] = useState<'speed' | 'activity'>('speed')
+  const [activeStatsView, setActiveStatsView] = useState<'speed' | 'activity' | 'comparison'>('speed')
   
   const csvProcessor = useCSVInterval()
   const mapViewerRef = useRef<MapViewerRef>(null)
@@ -125,7 +126,7 @@ export default function App() {
       )}
 
       {/* Estadísticas - Vista unificada */}
-      {activeStatsView === 'speed' ? (
+      {activeStatsView === 'speed' && (
         <SpeedProfile
           csvResults={csvProcessor.results}
           selectedJourneys={selectedJourneys}
@@ -133,10 +134,25 @@ export default function App() {
           onClose={() => setShowStats(false)}
           onViewChange={setActiveStatsView}
         />
-      ) : (
+      )}
+      
+      {activeStatsView === 'activity' && (
         <ActivityDistribution
           csvResults={csvProcessor.results}
           selectedJourneys={selectedJourneys}
+          isVisible={showStats}
+          onClose={() => setShowStats(false)}
+          onViewChange={setActiveStatsView}
+        />
+      )}
+      
+      {activeStatsView === 'comparison' && (
+        <JourneyComparison
+          csvResults={csvProcessor.results}
+          selectedJourneys={selectedJourneys}
+          journeys={csvProcessor.results?.data?.journeys || []}
+          intervalData={[]}
+          colors={{}}
           isVisible={showStats}
           onClose={() => setShowStats(false)}
           onViewChange={setActiveStatsView}

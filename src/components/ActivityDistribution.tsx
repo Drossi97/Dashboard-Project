@@ -8,7 +8,7 @@ interface ActivityDistributionProps {
   selectedJourneys: Set<number>
   isVisible: boolean
   onClose: () => void
-  onViewChange?: (view: 'speed' | 'activity') => void
+  onViewChange?: (view: 'speed' | 'activity' | 'comparison') => void
 }
 
 interface IntervalData {
@@ -109,7 +109,25 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
 
   return (
     <div className="fixed top-4 left-4 z-[999998] dashboard-component">
-      <div className="w-[calc(100vw-23rem)] max-w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] rounded-xl p-4 shadow-2xl border border-gray-700 overflow-hidden" style={{ backgroundColor: '#18202F' }}>
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .activity-scroll::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+          }
+          .activity-scroll::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          .activity-scroll::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 4px;
+          }
+          .activity-scroll::-webkit-scrollbar-thumb:hover {
+            background: transparent;
+          }
+        `
+      }} />
+      <div className="w-[calc(100vw-23rem)] max-w-[calc(100vw-2rem)] h-[calc(100vh-2rem)] rounded-xl p-4 shadow-2xl border border-gray-700 overflow-hidden" style={{ backgroundColor: '#1F2937' }}>
         <div className="flex flex-col h-full">
           {/* Encabezado con pestañas y botón de cerrar */}
           <div className="flex items-center justify-between mb-4">
@@ -126,13 +144,23 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                   Perfil de Velocidad
                 </button>
                 <button
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm rounded-md shadow-sm transition-all duration-200"
+                  className="flex items-center gap-2 px-4 py-2 text-white text-sm rounded-md shadow-sm transition-all duration-200"
+                  style={{ backgroundColor: '#2563EB' }}
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
                   </svg>
                   Distribución de Actividades
+                </button>
+                <button
+                  onClick={() => onViewChange('comparison')}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-400 hover:text-white hover:bg-gray-700 text-sm rounded-md transition-all duration-200"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                  Comparación de Trayectos
                 </button>
               </div>
             )}
@@ -151,126 +179,86 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
           {/* Contenido principal */}
           <div className="flex-1 flex flex-col min-h-0">
             {intervalData.length > 0 ? (
-              <div className="flex gap-4 h-full min-h-0">
-                {/* Pie Chart responsivo */}
-                <div className="flex-1 min-w-0 min-h-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={groupByClassification(intervalData)}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={false}
-                        outerRadius={Math.min(200, Math.max(160, 220 - groupByClassification(intervalData).length * 3))}
-                        innerRadius={Math.min(90, Math.max(70, 110 - groupByClassification(intervalData).length * 2))}
-                        fill="#8884d8"
-                        dataKey="duration"
-                        onMouseEnter={(data, index) => setHoveredIndex(index)}
-                        onMouseLeave={() => setHoveredIndex(null)}
-                      >
-                        {groupByClassification(intervalData).map((entry, index) => (
-                          <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.color}
-                            stroke={hoveredIndex === index ? '#FFFFFF' : 'none'}
-                            strokeWidth={hoveredIndex === index ? 3 : 0}
-                            style={{
-                              filter: hoveredIndex !== null && hoveredIndex !== index ? 'opacity(0.3)' : 'opacity(1)',
-                              transition: 'all 0.2s ease-in-out'
-                            }}
-                          />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
+              <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 lg:gap-6 h-full">
+                {/* Pie Chart */}
+                <div className="flex-1 rounded-lg p-3 sm:p-4 lg:p-6 min-w-0 overflow-hidden" style={{ backgroundColor: '#2D3748' }}>
+                  <div className="h-full min-h-[250px] sm:min-h-[300px] lg:min-h-[350px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={groupByClassification(intervalData)}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={false}
+                          outerRadius="80%"
+                          fill="#8884d8"
+                          dataKey="duration"
+                          onMouseEnter={(data, index) => setHoveredIndex(index)}
+                          onMouseLeave={() => setHoveredIndex(null)}
+                        >
+                          {groupByClassification(intervalData).map((entry, index) => (
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={entry.color}
+                              stroke={hoveredIndex === index ? '#FFFFFF' : 'none'}
+                              strokeWidth={hoveredIndex === index ? 3 : 0}
+                              style={{
+                                filter: hoveredIndex !== null && hoveredIndex !== index ? 'opacity(0.3)' : 'opacity(1)',
+                                transition: 'all 0.2s ease-in-out'
+                              }}
+                            />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
                 
-                {/* Leyenda responsiva */}
-                <div className={`flex-shrink-0 flex flex-col ${groupByClassification(intervalData).length > 6 ? 'w-80' : 'w-96'}`}>
-                  {/* Lista de actividades con scroll */}
-                  <div className={`flex-shrink-0 ${groupByClassification(intervalData).length > 8 ? 'space-y-1 max-h-[calc(100vh-32rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-white/30 scrollbar-track-white/10 hover:scrollbar-thumb-white/50 pr-2' : 'space-y-2'}`}>
-                    {groupByClassification(intervalData).map((entry, index) => (
+                {/* Leyenda */}
+                <div className="flex-shrink-0 w-full lg:w-80 rounded-lg p-3 sm:p-4 lg:p-6 overflow-hidden" style={{ backgroundColor: '#2D3748' }}>
+                  <div className="space-y-1 h-full max-h-[200px] sm:max-h-[250px] lg:max-h-none overflow-y-auto overflow-x-hidden activity-scroll" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                    <div className="flex items-center justify-between text-sm font-semibold text-gray-300 mb-2 p-1 rounded" style={{ backgroundColor: '#2D3748' }}>
+                      <span>Tiempo Total:</span>
+                      <span>{formatDuration(intervalData.reduce((total, interval) => total + interval.durationInSeconds, 0))}</span>
+                    </div>
+                    <div className="border-b border-gray-600 mb-2"></div>
+                    {groupByClassification(intervalData).map((item, index) => (
                       <div 
                         key={index} 
-                        className={`flex items-start rounded-lg cursor-pointer transition-all duration-200 ${
-                          groupByClassification(intervalData).length > 8 ? 'gap-1.5 p-1.5' : 'gap-2 p-2'
-                        } ${
+                        className={`cursor-pointer transition-all duration-200 rounded p-2 hover:bg-gray-700 ${
                           hoveredIndex === index 
-                            ? 'bg-gray-700 scale-[1.02] shadow-lg' 
-                            : 'hover:bg-gray-800'
+                            ? 'bg-gray-700' 
+                            : ''
                         }`}
                         onMouseEnter={() => setHoveredIndex(index)}
                         onMouseLeave={() => setHoveredIndex(null)}
-                        title={entry.name} // Tooltip nativo para mostrar texto completo
                       >
-             <div 
-               className={`rounded-full flex-shrink-0 transition-all duration-200 ${
-                 groupByClassification(intervalData).length > 8 ? 'w-2.5 h-2.5 mt-0.5' : 'w-3 h-3 mt-1'
-               } ${
-                 hoveredIndex === index ? 'scale-110 shadow-md' : ''
-               }`}
-               style={{ 
-                 backgroundColor: 'transparent',
-                 border: `2px solid ${entry.color}`,
-                 boxShadow: hoveredIndex === index ? `0 0 8px ${entry.color}40` : 'none'
-               }}
-             ></div>
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className={`font-medium break-words transition-colors duration-200 leading-tight ${
-                            groupByClassification(intervalData).length > 8 ? 'text-xs' : 'text-sm'
-                          } ${
+                        <div className="flex items-center space-x-2 mb-1">
+                          <div 
+                            className={`w-3 h-3 rounded-full transition-all duration-200 flex-shrink-0 ${
+                              hoveredIndex === index ? 'scale-110 shadow-md' : ''
+                            }`}
+                            style={{ 
+                              backgroundColor: item.color,
+                              boxShadow: hoveredIndex === index ? `0 0 8px ${item.color}40` : 'none'
+                            }}
+                          />
+                          <span className={`transition-colors duration-200 text-sm ${
                             hoveredIndex === index ? 'text-white' : 'text-gray-300'
-                          }`}>
-                            {entry.name}
-                          </span>
-                          <span className={`transition-colors duration-200 mt-0.5 ${
-                            groupByClassification(intervalData).length > 8 ? 'text-xs' : 'text-xs'
-                          } ${
-                            hoveredIndex === index ? 'text-gray-200' : 'text-gray-400'
-                          }`}>
-                            {formatDuration(entry.duration)} ({entry.percentage.toFixed(1)}%)
-                          </span>
+                          }`}>{item.name}</span>
                         </div>
+                        <div className={`transition-colors duration-200 text-xs ml-5 ${
+                          hoveredIndex === index ? 'text-gray-200' : 'text-gray-400'
+                        }`}>{formatDuration(item.duration)} ({item.percentage.toFixed(1)}%)</div>
                       </div>
                     ))}
-                  </div>
-                  
-                  {/* Tiempo total */}
-                  <div className="mt-4 pt-3 border-t border-gray-600">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 bg-gray-500 rounded-md flex-shrink-0"></div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-gray-200 font-semibold text-sm">Tiempo Total</span>
-                        <span className="text-gray-300 text-xs">
-                          {formatDuration(intervalData.reduce((total, interval) => total + interval.durationInSeconds, 0))}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Estadísticas adicionales */}
-                  <div className="mt-3 pt-3 border-t border-gray-600">
-                    <div className="space-y-1.5">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-xs">Total de Intervalos:</span>
-                        <span className="text-white font-semibold text-xs">{intervalData.length}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-xs">Tipos de Actividad:</span>
-                        <span className="text-white font-semibold text-xs">{groupByClassification(intervalData).length}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-400 text-xs">Trayectos Seleccionados:</span>
-                        <span className="text-white font-semibold text-xs">{selectedJourneys.size}</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center text-gray-400">
+                <div className="text-center" style={{ color: '#9CA3AF' }}>
                   <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
                     <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
@@ -278,7 +266,7 @@ const ActivityDistribution: React.FC<ActivityDistributionProps> = ({ csvResults,
                     </svg>
                   </div>
                   <h4 className="text-xl font-semibold text-white mb-2">Sin datos de actividades</h4>
-                  <p className="text-gray-400">Selecciona trayectos para ver la distribución</p>
+                  <p style={{ color: '#9CA3AF' }}>Selecciona trayectos para ver la distribución</p>
                 </div>
               </div>
             )}
