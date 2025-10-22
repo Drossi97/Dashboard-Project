@@ -698,7 +698,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       stroke="rgba(255,255,255,0.6)"
                       fill="rgba(255,255,255,0.25)"
                       fillOpacity={1}
-                      onChange={() => {}} // Desactivar funcionalidad de click
+                      onChange={handleBrushChange}
                       startIndex={shouldResetView ? 0 : (brushRange ? brushRange[0] : 0)}
                       endIndex={shouldResetView ? scaledSpeedData.length - 1 : (brushRange ? brushRange[1] : scaledSpeedData.length - 1)}
                       tickFormatter={() => ''}
