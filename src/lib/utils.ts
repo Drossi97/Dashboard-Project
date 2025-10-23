@@ -12,7 +12,9 @@ export const parseDurationToSeconds = (duration: string): number => {
     let totalSeconds = 0
     
     parts.forEach(part => {
-      if (part.includes('h')) {
+      if (part.includes('d')) {
+        totalSeconds += parseInt(part.replace('d', '')) * 24 * 3600
+      } else if (part.includes('h')) {
         totalSeconds += parseInt(part.replace('h', '')) * 3600
       } else if (part.includes('m')) {
         totalSeconds += parseInt(part.replace('m', '')) * 60
@@ -29,11 +31,14 @@ export const parseDurationToSeconds = (duration: string): number => {
 
 // Función para formatear duración en segundos a formato legible (compartida entre componentes)
 export const formatDuration = (seconds: number): string => {
-  const hours = Math.floor(seconds / 3600)
+  const days = Math.floor(seconds / (24 * 3600))
+  const hours = Math.floor((seconds % (24 * 3600)) / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
   const remainingSeconds = seconds % 60
   
-  if (hours > 0) {
+  if (days > 0) {
+    return `${days}d ${hours}h ${minutes}m ${remainingSeconds}s`
+  } else if (hours > 0) {
     return `${hours}h ${minutes}m ${remainingSeconds}s`
   } else if (minutes > 0) {
     return `${minutes}m ${remainingSeconds}s`

@@ -219,11 +219,16 @@ const calculateTimeDifference = (startTime: string, endTime: string): string => 
     const end = new Date(endTime)
     const diffMs = end.getTime() - start.getTime()
     
-    const hours = Math.floor(diffMs / MS_PER_HOUR)
+    const days = Math.floor(diffMs / (24 * MS_PER_HOUR))
+    const hours = Math.floor((diffMs % (24 * MS_PER_HOUR)) / MS_PER_HOUR)
     const minutes = Math.floor((diffMs % MS_PER_HOUR) / MS_PER_MINUTE)
     const seconds = Math.floor((diffMs % MS_PER_MINUTE) / MS_PER_SECOND)
     
-    return `${hours}h ${minutes}m ${seconds}s`
+    if (days > 0) {
+      return `${days}d ${hours}h ${minutes}m ${seconds}s`
+    } else {
+      return `${hours}h ${minutes}m ${seconds}s`
+    }
   } catch {
     return "0h 0m 0s"
   }

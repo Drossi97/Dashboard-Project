@@ -1055,14 +1055,16 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                     })()}
                   </div>
                 </div>
-                {/* Celda: Hora */}
+                {/* Celda: Hora y Fecha */}
                 <div>
                   <div className="text-blue-50 text-sm">
                     {(() => {
                       const p = selectedDataPoint || speedData[0]
-                      if (p?.classificationType === 'GAP' || !p?.timestamp) return '--.--'
+                      if (p?.classificationType === 'GAP' || !p?.timestamp) return '--/--/---- - --:--h'
                       const t = new Date(p.timestamp)
-                      return t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h'
+                      const time = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h'
+                      const date = t.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                      return `${date} - ${time}`
                     })()}
                   </div>
                 </div>
@@ -1129,9 +1131,12 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       const start = new Date(dataPoint.startTime)
                       const end = new Date(dataPoint.endTime)
                       const durationMs = end.getTime() - start.getTime()
-                      const hours = Math.floor(durationMs / (1000 * 60 * 60))
+                      const days = Math.floor(durationMs / (24 * 1000 * 60 * 60))
+                      const hours = Math.floor((durationMs % (24 * 1000 * 60 * 60)) / (1000 * 60 * 60))
                       const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60))
-                      if (hours > 0) {
+                      if (days > 0) {
+                        return `${days}d ${hours}h ${minutes}m`
+                      } else if (hours > 0) {
                         return `${hours}h ${minutes}m`
                       } else {
                         return `${minutes}m`
