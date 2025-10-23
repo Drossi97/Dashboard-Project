@@ -65,6 +65,26 @@ export default function App() {
     setSelectedJourneys(new Set())
   }
 
+  // Alternar múltiples trayectos de una vez
+  const toggleMultipleJourneys = (journeyIndices: number[]) => {
+    const newSelectedJourneys = new Set(selectedJourneys)
+    const allSelected = journeyIndices.every(index => newSelectedJourneys.has(index))
+    
+    if (allSelected) {
+      // Deseleccionar todos
+      journeyIndices.forEach(index => {
+        newSelectedJourneys.delete(index)
+      })
+    } else {
+      // Seleccionar todos
+      journeyIndices.forEach(index => {
+        newSelectedJourneys.add(index)
+      })
+    }
+    
+    setSelectedJourneys(newSelectedJourneys)
+  }
+
   // Reiniciar para cargar nuevos archivos
   const resetForNewFiles = () => {
     setFiles([])
@@ -122,6 +142,7 @@ export default function App() {
           onStatsViewChange={setActiveStatsView}
           onSelectAll={selectAllJourneys}
           onDeselectAll={deselectAllJourneys}
+          onToggleMultipleJourneys={toggleMultipleJourneys}
         />
       )}
 

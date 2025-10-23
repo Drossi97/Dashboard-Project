@@ -10,6 +10,7 @@ interface JourneySelectorProps {
   onStatsViewChange: (view: 'speed' | 'activity' | 'comparison') => void
   onSelectAll: () => void
   onDeselectAll: () => void
+  onToggleMultipleJourneys?: (journeyIndices: number[]) => void
 }
 
 // Función helper para formatear fecha
@@ -37,10 +38,79 @@ export default function JourneySelector({
   onShowStats,
   onStatsViewChange,
   onSelectAll,
-  onDeselectAll
+  onDeselectAll,
+  onToggleMultipleJourneys
 }: JourneySelectorProps) {
 
   const availableJourneys = csvResults?.success && csvResults.data?.journeys ? csvResults.data.journeys : []
+  
+  // Estado para controlar qué días están expandidos
+  const [expandedDays, setExpandedDays] = React.useState<Set<string>>(new Set())
+  
+  // Agrupar trayectos por día
+  const journeysByDay = React.useMemo(() => {
+    const grouped: Record<string, Journey[]> = {}
+    
+    availableJourneys.forEach(journey => {
+      const dayKey = formatDate(journey.metadata.startDate)
+      if (!grouped[dayKey]) {
+        grouped[dayKey] = []
+      }
+      grouped[dayKey].push(journey)
+    })
+    
+    // Ordenar días de más antiguo a más reciente
+    const sortedDays = Object.keys(grouped).sort((a, b) => {
+      const dateA = new Date(a.split('/').reverse().join('-'))
+      const dateB = new Date(b.split('/').reverse().join('-'))
+      return dateA.getTime() - dateB.getTime()
+    })
+    
+    return { grouped, sortedDays }
+  }, [availableJourneys])
+  
+  // Función para alternar la expansión de un día
+  const toggleDayExpansion = (dayKey: string) => {
+    setExpandedDays(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(dayKey)) {
+        newSet.delete(dayKey)
+      } else {
+        newSet.add(dayKey)
+      }
+      return newSet
+    })
+  }
+  
+  // Función para seleccionar/deseleccionar todos los trayectos de un día
+  const toggleDayJourneys = (dayKey: string) => {
+    const dayJourneys = journeysByDay.grouped[dayKey]
+    const dayJourneyIndices = dayJourneys.map(j => j.journeyIndex)
+    const allSelected = dayJourneyIndices.every(index => selectedJourneys.has(index))
+    
+    // Si hay una función para manejar múltiples trayectos, usarla
+    if (onToggleMultipleJourneys) {
+      onToggleMultipleJourneys(dayJourneyIndices)
+      return
+    }
+    
+    // Fallback: usar la función individual
+    if (allSelected) {
+      // Deseleccionar todos los trayectos del día
+      dayJourneyIndices.forEach(index => {
+        if (selectedJourneys.has(index)) {
+          onToggleJourney(index)
+        }
+      })
+    } else {
+      // Seleccionar todos los trayectos del día
+      dayJourneyIndices.forEach(index => {
+        if (!selectedJourneys.has(index)) {
+          onToggleJourney(index)
+        }
+      })
+    }
+  }
 
   return (
     <div className="fixed top-4 right-4 z-[999999]" style={{ zIndex: 999999 }}>
@@ -129,93 +199,47 @@ export default function JourneySelector({
         >
           <div className="space-y-2">
             {availableJourneys.length > 0 ? (
-              availableJourneys.map((journey) => {
-                const isSelected = selectedJourneys.has(journey.journeyIndex)
-                const journeyColor = getJourneyColor(journey.journeyIndex)
-                
-                // Formatear fechas y horas
-                const startDate = formatDate(journey.metadata.startDate)
-                const endDate = formatDate(journey.metadata.endDate)
-                const startTime = formatTime(journey.metadata.startTime)
-                const endTime = formatTime(journey.metadata.endTime)
-                
-                // Generar texto de ruta
-                let displayRoute = ''
-                let routeColor = 'text-gray-300'
-                
-                if (journey.metadata.isIncomplete) {
-                  displayRoute = 'Trayecto incompleto'
-                  routeColor = 'text-orange-400'
-                } else {
-                  // Trayecto completo
-                  displayRoute = `${journey.metadata.startPort} → ${journey.metadata.endPort}`
-                  routeColor = 'text-gray-300'
-                  
-                  // Verificar si termina navegando cerca (no atracado)
-                  const lastInterval = journey.intervals[journey.intervals.length - 1]
-                  if (lastInterval?.classificationType?.startsWith("Navegando cerca de")) {
-                    routeColor = 'text-blue-300'
-                  }
-                }
+              journeysByDay.sortedDays.map((dayKey) => {
+                const dayJourneys = journeysByDay.grouped[dayKey]
+                const isExpanded = expandedDays.has(dayKey)
+                const dayJourneyIndices = dayJourneys.map(j => j.journeyIndex)
+                const allSelectedInDay = dayJourneyIndices.every(index => selectedJourneys.has(index))
                 
                 return (
-                  <div
-                    key={journey.journeyIndex}
-                    onClick={() => onToggleJourney(journey.journeyIndex)}
-                    className={`w-full rounded-xl transition-all duration-200 overflow-hidden cursor-pointer ${
-                      isSelected
-                        ? 'text-gray-300'
-                        : 'text-gray-300'
-                    }`}
-                    style={{ backgroundColor: '#2D3748' }}
-                  >
-                    <div className={`w-full text-left px-3 py-2 transition-colors`}
-                      style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                  <div key={dayKey} className="space-y-1">
+                    {/* Header del día */}
+                    <div 
+                      className="flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors hover:bg-gray-700"
+                      style={{ backgroundColor: '#374151' }}
+                      onClick={() => toggleDayExpansion(dayKey)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-4 h-4 rounded-full shadow-sm border-2 border-white/20"
-                            style={{ backgroundColor: journeyColor }}
-                          />
-                          <div>
-                            <div className="font-bold text-base mb-0.5">
-                              Trayecto {journey.journeyIndex}
-                            </div>
-
-                            <div className={`text-xs font-medium mb-1 ${routeColor}`}>
-                              {displayRoute}
-                            </div>
-
-                            <div className="text-sm font-semibold text-blue-400">
-                              {journey.metadata.totalDuration}
-                            </div>
-
-                            <div className="text-xs text-gray-400 mt-1">
-                              {(() => {
-                                try {
-                                  if (startTime && startDate && endTime && endDate) {
-                                    if (startDate === endDate) {
-                                      return `${startDate} (${startTime} → ${endTime})`
-                                    }
-                                    return `${startDate} ${startTime} → ${endDate} ${endTime}`
-                                  }
-                                  return 'Fechas no disponibles'
-                                } catch {
-                                  return 'Fechas no disponibles'
-                                }
-                              })()}
-                            </div>
-
-                          </div>
-                        </div>
-
-                        <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
-                          isSelected
+                      <div className="flex items-center gap-2">
+                        <svg 
+                          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        <span className="text-white font-medium text-sm">{dayKey}</span>
+                        <span className="text-gray-400 text-xs">({dayJourneys.length} trayectos)</span>
+                      </div>
+                      
+                      {/* Checkbox para seleccionar todos los trayectos del día */}
+                      <div 
+                        className="flex items-center"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleDayJourneys(dayKey)
+                        }}
+                      >
+                        <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                          allSelectedInDay
                             ? 'bg-green-600 border-green-600'
-                            : 'bg-transparent border-gray-400'
+                            : 'bg-transparent border-gray-400 hover:border-gray-300'
                         }`}>
-                          {isSelected && (
+                          {allSelectedInDay && (
                             <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
@@ -223,6 +247,107 @@ export default function JourneySelector({
                         </div>
                       </div>
                     </div>
+                    
+                    {/* Trayectos del día (solo si está expandido) */}
+                    {isExpanded && (
+                      <div className="space-y-1">
+                        {dayJourneys.map((journey) => {
+                          const isSelected = selectedJourneys.has(journey.journeyIndex)
+                          const journeyColor = getJourneyColor(journey.journeyIndex)
+                          
+                          // Formatear fechas y horas
+                          const startDate = formatDate(journey.metadata.startDate)
+                          const endDate = formatDate(journey.metadata.endDate)
+                          const startTime = formatTime(journey.metadata.startTime)
+                          const endTime = formatTime(journey.metadata.endTime)
+                          
+                          // Generar texto de ruta
+                          let displayRoute = ''
+                          let routeColor = 'text-gray-300'
+                          
+                          if (journey.metadata.isIncomplete) {
+                            displayRoute = 'Trayecto incompleto'
+                            routeColor = 'text-orange-400'
+                          } else {
+                            // Trayecto completo
+                            displayRoute = `${journey.metadata.startPort} → ${journey.metadata.endPort}`
+                            routeColor = 'text-gray-300'
+                            
+                            // Verificar si termina navegando cerca (no atracado)
+                            const lastInterval = journey.intervals[journey.intervals.length - 1]
+                            if (lastInterval?.classificationType?.startsWith("Navegando cerca de")) {
+                              routeColor = 'text-blue-300'
+                            }
+                          }
+                          
+                          return (
+                            <div
+                              key={journey.journeyIndex}
+                              onClick={() => onToggleJourney(journey.journeyIndex)}
+                              className={`w-full rounded-xl transition-all duration-200 overflow-hidden cursor-pointer ${
+                                isSelected
+                                  ? 'text-gray-300'
+                                  : 'text-gray-300'
+                              }`}
+                              style={{ backgroundColor: '#2D3748' }}
+                            >
+                              <div className={`w-full text-left px-3 py-2 transition-colors`}
+                                style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent' }}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="w-4 h-4 rounded-full shadow-sm border-2 border-white/20"
+                                      style={{ backgroundColor: journeyColor }}
+                                    />
+                                    <div>
+                                      <div className="font-bold text-base mb-0.5">
+                                        Trayecto {journey.journeyIndex}
+                                      </div>
+
+                                      <div className={`text-xs font-medium mb-1 ${routeColor}`}>
+                                        {displayRoute}
+                                      </div>
+
+                                      <div className="flex items-center justify-between">
+                                        <div className="text-sm font-semibold text-blue-400">
+                                          {journey.metadata.totalDuration}
+                                        </div>
+                                        <div className="text-xs text-gray-400 ml-2">
+                                          {(() => {
+                                            try {
+                                              if (startTime && endTime) {
+                                                return `(${startTime} → ${endTime})`
+                                              }
+                                              return '(Horarios no disponibles)'
+                                            } catch {
+                                              return '(Horarios no disponibles)'
+                                            }
+                                          })()}
+                                        </div>
+                                      </div>
+
+                                    </div>
+                                  </div>
+
+                                  <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
+                                    isSelected
+                                      ? 'bg-green-600 border-green-600'
+                                      : 'bg-transparent border-gray-400'
+                                  }`}>
+                                    {isSelected && (
+                                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                      </svg>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 )
               })

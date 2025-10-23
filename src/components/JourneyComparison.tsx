@@ -29,12 +29,23 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
   const [groupB, setGroupB] = useState<Set<number>>(new Set());
   const [hoveredIndexA, setHoveredIndexA] = useState<number | null>(null);
   const [hoveredIndexB, setHoveredIndexB] = useState<number | null>(null);
+  const [expandedDaysA, setExpandedDaysA] = useState<Set<string>>(new Set());
+  const [expandedDaysB, setExpandedDaysB] = useState<Set<string>>(new Set());
 
   // Colores para el pie chart
   const CHART_COLORS = [
     '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
     '#EC4899', '#06B6D4', '#84CC16', '#F97316'
   ];
+
+  // Función helper para formatear fecha
+  const formatDate = (dateString: string): string => {
+    try {
+      return new Date(dateString).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    } catch {
+      return ''
+    }
+  }
 
   // Extraer datos de intervalos desde journeys
   const extractedIntervalData = useMemo(() => {
@@ -176,6 +187,125 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
 
   const availableJourneys = journeys.filter(journey => selectedJourneys.has(journey.journeyIndex));
 
+  // Agrupar trayectos por día
+  const journeysByDay = useMemo(() => {
+    const grouped: Record<string, Journey[]> = {}
+    availableJourneys.forEach(journey => {
+      const dayKey = formatDate(journey.metadata.startDate)
+      if (!grouped[dayKey]) {
+        grouped[dayKey] = []
+      }
+      grouped[dayKey].push(journey)
+    })
+    
+    // Ordenar días de más antiguo a más reciente
+    const sortedDays = Object.keys(grouped).sort((a, b) => {
+      const dateA = new Date(a.split('/').reverse().join('-'))
+      const dateB = new Date(b.split('/').reverse().join('-'))
+      return dateA.getTime() - dateB.getTime()
+    })
+    
+    return { grouped, sortedDays }
+  }, [availableJourneys])
+
+  // Funciones para alternar expansión de días
+  const toggleDayExpansionA = (dayKey: string) => {
+    setExpandedDaysA(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(dayKey)) {
+        newSet.delete(dayKey)
+      } else {
+        newSet.add(dayKey)
+      }
+      return newSet
+    })
+  }
+
+  const toggleDayExpansionB = (dayKey: string) => {
+    setExpandedDaysB(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(dayKey)) {
+        newSet.delete(dayKey)
+      } else {
+        newSet.add(dayKey)
+      }
+      return newSet
+    })
+  }
+
+  // Funciones para seleccionar/deseleccionar todos los trayectos de un día
+  const toggleDayJourneysA = (dayKey: string) => {
+    const dayJourneys = journeysByDay.grouped[dayKey]
+    const dayJourneyIndices = dayJourneys.map(j => j.journeyIndex)
+    const allSelected = dayJourneyIndices.every(index => groupA.has(index))
+    
+    if (allSelected) {
+      // Deseleccionar todos los trayectos del día
+      dayJourneyIndices.forEach(index => {
+        if (groupA.has(index)) {
+          setGroupA(prev => {
+            const newGroupA = new Set(prev)
+            newGroupA.delete(index)
+            return newGroupA
+          })
+        }
+      })
+    } else {
+      // Seleccionar todos los trayectos del día que no estén seleccionados
+      dayJourneyIndices.forEach(index => {
+        if (!groupA.has(index)) {
+          setGroupA(prev => {
+            const newGroupA = new Set(prev)
+            newGroupA.add(index)
+            // Remover de grupo B si está ahí
+            setGroupB(prevB => {
+              const newGroupB = new Set(prevB)
+              newGroupB.delete(index)
+              return newGroupB
+            })
+            return newGroupA
+          })
+        }
+      })
+    }
+  }
+
+  const toggleDayJourneysB = (dayKey: string) => {
+    const dayJourneys = journeysByDay.grouped[dayKey]
+    const dayJourneyIndices = dayJourneys.map(j => j.journeyIndex)
+    const allSelected = dayJourneyIndices.every(index => groupB.has(index))
+    
+    if (allSelected) {
+      // Deseleccionar todos los trayectos del día
+      dayJourneyIndices.forEach(index => {
+        if (groupB.has(index)) {
+          setGroupB(prev => {
+            const newGroupB = new Set(prev)
+            newGroupB.delete(index)
+            return newGroupB
+          })
+        }
+      })
+    } else {
+      // Seleccionar todos los trayectos del día que no estén seleccionados
+      dayJourneyIndices.forEach(index => {
+        if (!groupB.has(index)) {
+          setGroupB(prev => {
+            const newGroupB = new Set(prev)
+            newGroupB.add(index)
+            // Remover de grupo A si está ahí
+            setGroupA(prevA => {
+              const newGroupA = new Set(prevA)
+              newGroupA.delete(index)
+              return newGroupA
+            })
+            return newGroupB
+          })
+        }
+      })
+    }
+  }
+
   if (!isVisible) return null;
 
   return (
@@ -260,30 +390,86 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
             {availableJourneys.length === 0 ? (
               <div className="text-sm p-2" style={{ color: '#9CA3AF' }}>No hay trayectos seleccionados</div>
             ) : (
-              availableJourneys.map(journey => (
-                <label key={journey.journeyIndex} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors`} style={{ backgroundColor: groupA.has(journey.journeyIndex) ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={groupA.has(journey.journeyIndex)}
-                      onChange={() => toggleJourneyInGroup(journey.journeyIndex, 'A')}
-                      className="sr-only"
-                    />
-                    <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
-                      groupA.has(journey.journeyIndex)
-                        ? 'bg-green-600 border-green-600'
-                        : 'bg-transparent border-gray-400 hover:border-gray-300'
-                    }`}>
-                      {groupA.has(journey.journeyIndex) && (
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              journeysByDay.sortedDays.map(dayKey => {
+                const dayJourneys = journeysByDay.grouped[dayKey]
+                const isExpanded = expandedDaysA.has(dayKey)
+                const allSelectedInDay = dayJourneys.every(journey => groupA.has(journey.journeyIndex))
+                
+                return (
+                  <div key={dayKey} className="space-y-1">
+                    {/* Header del día */}
+                    <div 
+                      className="flex items-center justify-between cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors"
+                      onClick={() => toggleDayExpansionA(dayKey)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <svg 
+                          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                      )}
+                        <span className="text-sm font-medium text-gray-300">
+                          {dayKey} ({dayJourneys.length} trayectos)
+                        </span>
+                      </div>
+                      <div 
+                        className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                          allSelectedInDay
+                            ? 'bg-green-600 border-green-600'
+                            : 'bg-transparent border-gray-400 hover:border-gray-300'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleDayJourneysA(dayKey)
+                        }}
+                      >
+                        {allSelectedInDay && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* Trayectos del día (solo si está expandido) */}
+                    {isExpanded && (
+                      <div className="space-y-1 ml-4">
+                        {dayJourneys.map((journey) => {
+                          const isSelected = groupA.has(journey.journeyIndex)
+                          
+                          return (
+                            <label key={journey.journeyIndex} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors`} style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
+                              <div className="relative">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleJourneyInGroup(journey.journeyIndex, 'A')}
+                                  className="sr-only"
+                                />
+                                <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
+                                  isSelected
+                                    ? 'bg-green-600 border-green-600'
+                                    : 'bg-transparent border-gray-400 hover:border-gray-300'
+                                }`}>
+                                  {isSelected && (
+                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-sm text-gray-300">{getJourneyLabel(journey)}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-sm text-gray-300">{getJourneyLabel(journey)}</span>
-                </label>
-              ))
+                )
+              })
             )}
           </div>
         </div>
@@ -296,30 +482,86 @@ const JourneyComparison: React.FC<JourneyComparisonProps> = ({
             {availableJourneys.length === 0 ? (
               <div className="text-sm p-2" style={{ color: '#9CA3AF' }}>No hay trayectos seleccionados</div>
             ) : (
-              availableJourneys.map(journey => (
-                <label key={journey.journeyIndex} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors`} style={{ backgroundColor: groupB.has(journey.journeyIndex) ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={groupB.has(journey.journeyIndex)}
-                      onChange={() => toggleJourneyInGroup(journey.journeyIndex, 'B')}
-                      className="sr-only"
-                    />
-                    <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
-                      groupB.has(journey.journeyIndex)
-                        ? 'bg-green-600 border-green-600'
-                        : 'bg-transparent border-gray-400 hover:border-gray-300'
-                    }`}>
-                      {groupB.has(journey.journeyIndex) && (
-                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              journeysByDay.sortedDays.map(dayKey => {
+                const dayJourneys = journeysByDay.grouped[dayKey]
+                const isExpanded = expandedDaysB.has(dayKey)
+                const allSelectedInDay = dayJourneys.every(journey => groupB.has(journey.journeyIndex))
+                
+                return (
+                  <div key={dayKey} className="space-y-1">
+                    {/* Header del día */}
+                    <div 
+                      className="flex items-center justify-between cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors"
+                      onClick={() => toggleDayExpansionB(dayKey)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <svg 
+                          className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
-                      )}
+                        <span className="text-sm font-medium text-gray-300">
+                          {dayKey} ({dayJourneys.length} trayectos)
+                        </span>
+                      </div>
+                      <div 
+                        className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors cursor-pointer ${
+                          allSelectedInDay
+                            ? 'bg-green-600 border-green-600'
+                            : 'bg-transparent border-gray-400 hover:border-gray-300'
+                        }`}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleDayJourneysB(dayKey)
+                        }}
+                      >
+                        {allSelectedInDay && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                      </div>
                     </div>
+                    
+                    {/* Trayectos del día (solo si está expandido) */}
+                    {isExpanded && (
+                      <div className="space-y-1 ml-4">
+                        {dayJourneys.map((journey) => {
+                          const isSelected = groupB.has(journey.journeyIndex)
+                          
+                          return (
+                            <label key={journey.journeyIndex} className={`flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-2 rounded transition-colors`} style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.1)' : 'transparent' }}>
+                              <div className="relative">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleJourneyInGroup(journey.journeyIndex, 'B')}
+                                  className="sr-only"
+                                />
+                                <div className={`w-4 h-4 border-2 rounded flex items-center justify-center transition-colors ${
+                                  isSelected
+                                    ? 'bg-green-600 border-green-600'
+                                    : 'bg-transparent border-gray-400 hover:border-gray-300'
+                                }`}>
+                                  {isSelected && (
+                                    <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                </div>
+                              </div>
+                              <span className="text-sm text-gray-300">{getJourneyLabel(journey)}</span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
-                  <span className="text-sm text-gray-300">{getJourneyLabel(journey)}</span>
-                </label>
-              ))
+                )
+              })
             )}
           </div>
         </div>

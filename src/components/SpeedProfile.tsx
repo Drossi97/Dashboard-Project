@@ -872,9 +872,9 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       type="number"
                       scale="linear"
                       orientation="top"
-                      axisLine={{ stroke: '#FFA500', strokeWidth: 1 }}
-                      tickLine={{ stroke: '#FFA500', strokeWidth: 1 }}
-                      tick={{ fill: '#FFA500', fontSize: 10, fontWeight: 600 }}
+                      axisLine={{ stroke: '#FFFFFF', strokeWidth: 1 }}
+                      tickLine={{ stroke: '#FFFFFF', strokeWidth: 1 }}
+                      tick={{ fill: '#FFFFFF', fontSize: 10, fontWeight: 600 }}
                       domain={['auto', 'auto']}
                       ticks={intervalTicks}
                       tickFormatter={(value) => intervalLabelMap.get(value as number) || ''}
@@ -888,9 +888,9 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       type="number"
                       scale="linear"
                       orientation="top"
-                      axisLine={{ stroke: '#FF6B6B', strokeWidth: 1 }}
-                      tickLine={{ stroke: '#FF6B6B', strokeWidth: 1 }}
-                      tick={{ fill: '#FF6B6B', fontSize: 10, fontWeight: 600, dy: -15 }}
+                      axisLine={{ stroke: '#FFFFFF', strokeWidth: 1 }}
+                      tickLine={{ stroke: '#FFFFFF', strokeWidth: 1 }}
+                      tick={{ fill: '#FFFFFF', fontSize: 10, fontWeight: 600, dy: -15 }}
                       domain={['auto', 'auto']}
                       ticks={journeyTicks}
                       tickFormatter={(value) => journeyLabelMap.get(value as number) || ''}
