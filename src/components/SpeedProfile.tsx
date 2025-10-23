@@ -1039,14 +1039,14 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
           {/* Paneles de estadísticas */}
           <div className="grid grid-cols-4 gap-3 h-20 mt-4 mb-4">
             {/* Panel 1: Información (4 métricas en 2x2) */}
-            <div className="rounded-xl py-2 px-3" style={{ backgroundColor: '#2D3748' }}>
+            <div className="rounded-xl py-2 px-3 flex flex-col justify-between" style={{ backgroundColor: '#2D3748' }}>
               <div className="flex items-center gap-2 mb-1">
                 <div className="w-2 h-2 bg-blue-300 rounded-full"></div>
                 <h4 className="text-blue-100 font-semibold text-xs">Información</h4>
               </div>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-center">
-                {/* Celda: Velocidad */}
-                <div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-center">
+                {/* Columna 1: Velocidad y Trayecto */}
+                <div className="space-y-1">
                   <div className="text-blue-50 text-sm">
                     {(() => {
                       const p = selectedDataPoint || speedData[0]
@@ -1054,9 +1054,16 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       return `${p.speed.toFixed(2)} nudos`
                     })()}
                   </div>
+                  <div className="text-blue-50 text-sm">
+                    {(() => {
+                      const p = selectedDataPoint || speedData[0]
+                      if (!p || p.journeyIndex === -1 || p.classificationType === 'GAP') return '--'
+                      return `Trayecto ${p.journeyIndex}`
+                    })()}
+                  </div>
                 </div>
-                {/* Celda: Hora y Fecha */}
-                <div>
+                {/* Columna 2: Hora/Fecha e Intervalo */}
+                <div className="space-y-1">
                   <div className="text-blue-50 text-sm">
                     {(() => {
                       const p = selectedDataPoint || speedData[0]
@@ -1067,19 +1074,6 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                       return `${date} - ${time}`
                     })()}
                   </div>
-                </div>
-                {/* Celda: Trayecto */}
-                <div>
-                  <div className="text-blue-50 text-sm">
-                    {(() => {
-                      const p = selectedDataPoint || speedData[0]
-                      if (!p || p.journeyIndex === -1 || p.classificationType === 'GAP') return '--'
-                      return `Trayecto ${p.journeyIndex}`
-                    })()}
-                  </div>
-                </div>
-                {/* Celda: Intervalo */}
-                <div>
                   <div className="text-blue-50 text-sm">
                     {(() => {
                       const p = selectedDataPoint || speedData[0]
