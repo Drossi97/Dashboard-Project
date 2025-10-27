@@ -712,7 +712,7 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
           {/* Gráfica principal */}
           <div className="rounded-xl p-3 border border-gray-800 flex-1 min-h-0 overflow-hidden" style={{ backgroundColor: '#2D3748' }}>
             {/* Leyenda integrada */}
-            <div className="flex items-center justify-center gap-4 mb-3 flex-wrap">
+            <div className="flex items-center justify-center gap-6 mb-3 flex-wrap">
               <button
                 onClick={() => setShowSpeedLine(!showSpeedLine)}
                 className="flex items-center gap-2 px-2 py-1 rounded-lg transition-colors duration-200"
@@ -760,8 +760,6 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   Estado
                 </span>
               </button>
-
-              <div className="w-px h-6 bg-gray-600 mx-2"></div>
 
               <button
                 onClick={() => setShowJourneyLines(!showJourneyLines)}
@@ -1067,11 +1065,11 @@ const SpeedProfile: React.FC<SpeedProfileProps> = ({ csvResults, selectedJourney
                   <div className="text-blue-50 text-sm">
                     {(() => {
                       const p = selectedDataPoint || speedData[0]
-                      if (p?.classificationType === 'GAP' || !p?.timestamp) return '--/--/---- - --:--h'
+                      if (p?.classificationType === 'GAP' || !p?.timestamp) return '--:--h - --/--/----'
                       const t = new Date(p.timestamp)
                       const time = t.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h'
                       const date = t.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
-                      return `${date} - ${time}`
+                      return `${time} - ${date}`
                     })()}
                   </div>
                   <div className="text-blue-50 text-sm">

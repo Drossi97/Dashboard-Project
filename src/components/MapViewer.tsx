@@ -28,6 +28,11 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
   const proximityActiveRef = useRef<boolean>(false)
   const currentPolylineRef = useRef<any>(null)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
+  
+  // Refs para optimización de rendimiento
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastMousePositionRef = useRef<any>(null)
+  const mouseMoveCounterRef = useRef<number>(0)
 
   // Cargar Leaflet dinámicamente
   useEffect(() => {
@@ -74,6 +79,158 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
     mapInstanceRef.current = map
   }, [isMapLoaded])
 
+  // Función de debounce para optimizar actualizaciones
+  const debounce = (func: () => void, delay: number) => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    debounceTimerRef.current = setTimeout(func, delay)
+  }
+  
+  // Funciones para análisis geométrico de intervalos
+  const calculateRouteLength = (coordinates: [number, number][]): number => {
+    let totalLength = 0
+    for (let i = 1; i < coordinates.length; i++) {
+      const [lat1, lon1] = coordinates[i - 1]
+      const [lat2, lon2] = coordinates[i]
+      // Distancia aproximada en grados (para comparación relativa)
+      const distance = Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2))
+      totalLength += distance
+    }
+    return totalLength
+  }
+
+  const calculateCurvatureComplexity = (coordinates: [number, number][]): number => {
+    if (coordinates.length < 3) return 0
+    
+    let totalCurvature = 0
+    let maxCurvature = 0
+    
+    for (let i = 1; i < coordinates.length - 1; i++) {
+      const prev = coordinates[i - 1]
+      const curr = coordinates[i]
+      const next = coordinates[i + 1]
+      
+      // Calcular cambio de dirección
+      const angle1 = Math.atan2(curr[1] - prev[1], curr[0] - prev[0])
+      const angle2 = Math.atan2(next[1] - curr[1], next[0] - curr[0])
+      let angleDiff = Math.abs(angle1 - angle2)
+      
+      // Normalizar diferencia de ángulo
+      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff
+      
+      totalCurvature += angleDiff
+      maxCurvature = Math.max(maxCurvature, angleDiff)
+    }
+    
+    // Retornar complejidad combinada (curvatura total + máxima)
+    return totalCurvature * 0.7 + maxCurvature * 0.3
+  }
+
+  // Función adaptativa para determinar densidad óptima de puntos por intervalo
+  const getOptimalPointDensity = (coordinates: [number, number][], interval: any): [number, number][] => {
+    const routeLength = calculateRouteLength(coordinates)
+    const curvature = calculateCurvatureComplexity(coordinates)
+    const originalPointCount = coordinates.length
+    
+    // Si la ruta es muy corta o tiene pocos puntos, no simplificar
+    if (originalPointCount <= 15 || routeLength < 0.005) {
+      return coordinates
+    }
+    
+    // Calcular factores de complejidad
+    const isLongRoute = routeLength > 0.05 // Ruta larga
+    const isHighCurvature = curvature > 1.0 // Ruta con muchas curvas
+    const isMediumCurvature = curvature > 0.3 // Ruta con curvas moderadas
+    
+    // Determinar estrategia de simplificación según características de la ruta
+    let targetReduction = 0
+    let tolerance = 0.0001
+    
+    if (isHighCurvature) {
+      // Rutas muy curvas: mantener 80-90% de los puntos
+      targetReduction = 0.1
+      tolerance = 0.00005 // Tolerancia muy baja
+    } else if (isMediumCurvature && isLongRoute) {
+      // Rutas largas con curvas moderadas: mantener 60-70% de los puntos
+      targetReduction = 0.35
+      tolerance = 0.0001
+    } else if (isLongRoute && !isMediumCurvature) {
+      // Rutas largas y bastante rectas: mantener 40-50% de los puntos
+      targetReduction = 0.55
+      tolerance = 0.0002
+    } else {
+      // Rutas cortas con poca curvatura: mantener 70% de los puntos
+      targetReduction = 0.3
+      tolerance = 0.0001
+    }
+    
+    // Aplicar simplificación adaptativa
+    return adaptiveSimplifyCoordinates(coordinates, tolerance, targetReduction)
+  }
+
+  // Función de simplificación adaptativa que respeta la geometría marítima
+  const adaptiveSimplifyCoordinates = (
+    coordinates: [number, number][],
+    tolerance: number,
+    targetReduction: number
+  ): [number, number][] => {
+    if (coordinates.length <= 3) return coordinates
+    
+    const simplified: [number, number][] = [coordinates[0]] // Siempre mantener el primer punto
+    
+    for (let i = 1; i < coordinates.length - 1; i++) {
+      const prev = coordinates[i - 1]
+      const curr = coordinates[i]
+      const next = coordinates[i + 1]
+      
+      // Calcular cambio de dirección
+      const angle1 = Math.atan2(curr[1] - prev[1], curr[0] - prev[0])
+      const angle2 = Math.atan2(next[1] - curr[1], next[0] - curr[0])
+      let angleDiff = Math.abs(angle1 - angle2)
+      if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff
+      
+      // Calcular distancia desde el último punto añadido
+      const lastAdded = simplified[simplified.length - 1]
+      const distanceFromLast = Math.sqrt(
+        Math.pow(curr[0] - lastAdded[0], 2) + Math.pow(curr[1] - lastAdded[1], 2)
+      )
+      
+      // Criterios para mantener el punto (más estrictos para navegación marítima)
+      const hasSignificantDirectionChange = angleDiff > 0.05 // Cambio de dirección > 3 grados
+      const isDistantFromLast = distanceFromLast > tolerance * 8
+      const isSignificantCurve = angleDiff > 0.15 // Curva importante > 8.6 grados
+      
+      // Siempre mantener puntos con cambios importantes de dirección o curvas significativas
+      if (hasSignificantDirectionChange || isDistantFromLast || isSignificantCurve) {
+        simplified.push(curr)
+      }
+    }
+    
+    simplified.push(coordinates[coordinates.length - 1]) // Siempre mantener el último punto
+    
+    // Si aún tenemos demasiados puntos, aplicar reducción adicional pero conservadora
+    const currentReduction = 1 - (simplified.length / coordinates.length)
+    if (currentReduction < targetReduction && simplified.length > 20) {
+      return applyAdditionalReduction(simplified, targetReduction - currentReduction)
+    }
+    
+    return simplified
+  }
+
+  // Reducción adicional muy conservadora cuando es necesario
+  const applyAdditionalReduction = (coordinates: [number, number][], additionalReduction: number): [number, number][] => {
+    const step = Math.max(2, Math.floor(1 / additionalReduction))
+    const result: [number, number][] = [coordinates[0]]
+    
+    for (let i = step; i < coordinates.length - 1; i += step) {
+      result.push(coordinates[i])
+    }
+    
+    result.push(coordinates[coordinates.length - 1])
+    return result
+  }
+
   // Limpiar marcadores y polylines
   const clearMap = () => {
     markersRef.current.forEach(marker => {
@@ -94,6 +251,12 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
     currentPolylineRef.current = null
     markersRef.current = []
     polylinesRef.current = []
+    
+    // Limpiar timer de debounce
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
   }
 
   // Función para extraer intervalos válidos desde los resultados de CSV
@@ -145,6 +308,9 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
         }
         return journeysToShow.has(interval.journeyIndex)
       })
+      
+      // Optimización: Solo simplificar en casos extremos (>200 intervalos)
+      const shouldSimplify = intervalsToShow.length > 200
 
 
       // Detectar el último intervalo de cada trayecto antes de dibujar
@@ -166,10 +332,13 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
         }
       })
 
-      // Dibujar cada intervalo
-      intervalsToShow.forEach((interval: any) => {
+      // Dibujar cada intervalo (mantener precisión de rutas)
+      intervalsToShow.forEach((interval: any, idx: number) => {
         const journeyIndex = interval.journeyIndex
-          const intervalColor = getJourneyColor(journeyIndex)
+        const intervalColor = getJourneyColor(journeyIndex)
+        
+        // Optimización: reducir marcadores solo en casos extremos (>100 intervalos)
+        const shouldReduceMarkers = intervalsToShow.length > 100
 
           // Crear polyline para este intervalo
           if (interval.coordinatePoints && interval.coordinatePoints.length > 1) {
@@ -180,13 +349,36 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                 intervalCoordinates.push([point.lat, point.lon])
               }
             })
+            
+            // Aplicar optimización adaptativa basada en longitud y curvatura del intervalo
+            let coordinatesToUse = intervalCoordinates
+            let routeAnalysis = { length: 0, curvature: 0 }
+            
+            if (shouldSimplify && intervalCoordinates.length > 20) {
+              // Calcular características de la ruta antes de simplificar
+              routeAnalysis.length = calculateRouteLength(intervalCoordinates)
+              routeAnalysis.curvature = calculateCurvatureComplexity(intervalCoordinates)
+              coordinatesToUse = getOptimalPointDensity(intervalCoordinates, interval)
+            }
 
-            if (intervalCoordinates.length > 1) {
-                const polyline = L.polyline(intervalCoordinates, {
+            if (coordinatesToUse.length > 1) {
+                // Determinar smoothFactor adaptativo basado en las características de la ruta
+                let adaptiveSmoothFactor = 1
+                if (shouldSimplify) {
+                  if (routeAnalysis.curvature > 1.0) {
+                    adaptiveSmoothFactor = 0.5 // Muy poco suavizado para rutas curvas
+                  } else if (routeAnalysis.curvature > 0.3) {
+                    adaptiveSmoothFactor = 1 // Suavizado normal para rutas moderadas
+                  } else {
+                    adaptiveSmoothFactor = 2 // Más suavizado para rutas rectas
+                  }
+                }
+                
+                const polyline = L.polyline(coordinatesToUse, {
                   color: intervalColor,
-                  weight: 3,
-                  opacity: 0.8,
-                  smoothFactor: 1
+                  weight: shouldReduceMarkers ? 2 : 3, // Líneas más finas cuando hay muchos trayectos
+                  opacity: shouldReduceMarkers ? 0.7 : 0.8, // Ligeramente menos opacas
+                  smoothFactor: adaptiveSmoothFactor // Suavizado adaptativo según curvatura
                 })
 
                 // Función para formatear duración sin mostrar 0h y sin segundos
@@ -209,38 +401,41 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
                 const endTime = interval.endTime ? new Date(interval.endTime).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'h' : 'N/A'
                 const date = interval.startTime ? new Date(interval.startTime).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' }) : 'N/A'
 
-                // Agregar marcadores de inicio y fin del intervalo
-                const startPoint = intervalCoordinates[0]
-                const endPoint = intervalCoordinates[intervalCoordinates.length - 1]
+                // Agregar marcadores de inicio y fin del intervalo (optimizado)
+                const startPoint = coordinatesToUse[0]
+                const endPoint = coordinatesToUse[coordinatesToUse.length - 1]
                 
-                // Marcador de inicio (color del trayecto - completo)
-                const startMarker = L.circleMarker(startPoint, {
-                  radius: 6,
-                  fillColor: intervalColor,
-                  color: '#FFFFFF',
-                  weight: 2,
-                  opacity: 1,
-                  fillOpacity: 0.8
-                }).addTo(mapInstanceRef.current)
-                
-                // Marcador de fin (color del trayecto - completo)
-                const endMarker = L.circleMarker(endPoint, {
-                  radius: 6,
-                  fillColor: intervalColor,
-                  color: '#FFFFFF',
-                  weight: 2,
-                  opacity: 1,
-                  fillOpacity: 0.8
-                }).addTo(mapInstanceRef.current)
-                
-                
-                // Guardar marcadores para poder limpiarlos después
-                markersRef.current.push(startMarker, endMarker)
+                // Solo agregar marcadores si no hay demasiados intervalos o si es importante
+                if (!shouldReduceMarkers || idx % 3 === 0) { // Mostrar 1 de cada 3 cuando hay muchos
+                  // Marcador de inicio (color del trayecto - completo)
+                  const startMarker = L.circleMarker(startPoint, {
+                    radius: shouldReduceMarkers ? 4 : 6, // Marcadores más pequeños cuando hay muchos
+                    fillColor: intervalColor,
+                    color: '#FFFFFF',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                  }).addTo(mapInstanceRef.current)
+                  
+                  // Marcador de fin (color del trayecto - completo)  
+                  const endMarker = L.circleMarker(endPoint, {
+                    radius: shouldReduceMarkers ? 4 : 6, // Marcadores más pequeños cuando hay muchos
+                    fillColor: intervalColor,
+                    color: '#FFFFFF',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                  }).addTo(mapInstanceRef.current)
+                  
+                  // Guardar marcadores para poder limpiarlos después
+                  markersRef.current.push(startMarker, endMarker)
+                }
 
             
             // Función para generar contenido del tooltip con datos del punto específico
             const generateTooltipContent = (pointLatLng: any, interval: any) => {
               // Calcular la posición relativa del punto en la trayectoria (0-100%)
+              // Usar interval.coordinatePoints para el cálculo preciso (no simplificado)
               const totalPoints = interval.coordinatePoints.length
               let closestPointIndex = 0
               let minDistance = Infinity
@@ -366,16 +561,16 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
             }
 
             // Función para calcular el punto más cercano en la línea con interpolación suave
-            const getClosestPointOnLine = (mouseLatLng: any, lineCoordinates: [number, number][]) => {
+            const getClosestPointOnLine = (mouseLatLng: any) => {
               let minDistance = Infinity
               let closestSegmentIndex = 0
-              let closestPoint = lineCoordinates[0]
+              let closestPoint = coordinatesToUse[0]
               let closestDistance = Infinity
 
               // Buscar el segmento más cercano en la línea
-              for (let i = 0; i < lineCoordinates.length - 1; i++) {
-                const p1 = lineCoordinates[i]
-                const p2 = lineCoordinates[i + 1]
+              for (let i = 0; i < coordinatesToUse.length - 1; i++) {
+                const p1 = coordinatesToUse[i]
+                const p2 = coordinatesToUse[i + 1]
                 
                 // Calcular distancia perpendicular del punto al segmento
                 const segmentLength = mapInstanceRef.current.distance(p1, p2)
@@ -405,7 +600,7 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
             const handleMapMouseMove = (e: any) => {
               if (!proximityActiveRef.current || !currentPolylineRef.current) return
 
-              const { point, distance } = getClosestPointOnLine(e.latlng, intervalCoordinates)
+              const { point, distance } = getClosestPointOnLine(e.latlng)
               
               // Si el cursor está cerca de la línea (dentro de 150 metros)
               if (distance < 150) {
@@ -535,7 +730,8 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
               permanent: false,
               direction: 'auto',
               offset: [0, -10],
-              opacity: 1
+              opacity: 0.95,
+              className: 'custom-tooltip proximity-tooltip'
             }).addTo(mapInstanceRef.current)
             
             markersRef.current.push(finalMarker)
@@ -565,21 +761,29 @@ const MapViewer = forwardRef<MapViewerRef, MapViewerProps>(({ csvResults, select
     if (mapInstanceRef.current && selectedJourneys.size > 0) {
       showSelectedJourneys(selectedJourneys)
       
-      // Agregar evento global de movimiento del mouse al mapa
+      // Agregar evento global de movimiento del mouse al mapa (con throttling)
       const handleGlobalMouseMove = (e: any) => {
         if (!proximityActiveRef.current) return
+
+        // Throttling: procesar solo cada 5 eventos
+        mouseMoveCounterRef.current++
+        if (mouseMoveCounterRef.current % 5 !== 0) return
 
         // Buscar todas las polylines activas
         let closestDistance = Infinity
         let closestPoint = null
         let closestPolyline = null
 
+        // Optimización: limitar búsqueda a polylines cercanas
+        const maxSearchDistance = 500 // metros
         polylinesRef.current.forEach((polyline: any) => {
           const latlngs = polyline.getLatLngs()
           if (latlngs && latlngs.length > 0) {
-            for (let i = 0; i < latlngs.length; i++) {
+            // Buscar solo en muestras de puntos (no todos los puntos)
+            const sampleRate = Math.max(1, Math.floor(latlngs.length / 50))
+            for (let i = 0; i < latlngs.length; i += sampleRate) {
               const distance = mapInstanceRef.current.distance(e.latlng, latlngs[i])
-              if (distance < closestDistance) {
+              if (distance < closestDistance && distance < maxSearchDistance) {
                 closestDistance = distance
                 closestPoint = latlngs[i]
                 closestPolyline = polyline
