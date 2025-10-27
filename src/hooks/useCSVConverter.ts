@@ -8,6 +8,8 @@ export interface RawDataRow {
   longitude: number | null
   speed: number | null
   navStatus: string
+  isGapMarker?: boolean // Marca si esta fila es un indicador de gap
+  gapDuration?: string // Duración del gap si es un marcador
   [key: string]: any // Para incluir todas las demás columnas del CSV original
 }
 
@@ -29,6 +31,9 @@ const COL_LON = "01-lonhr [deg]"
 const COL_SPEED = "04-speed [knots]"
 const COL_NAVSTATUS = "06-navstatus [adim]"
 const COL_TIME = "time"
+
+// Gap detection constant
+const MAX_GAP_THRESHOLD_MS = 500 // 0.5 segundos en milisegundos
 
 // Helper functions
 const parseTimestampParts = (timestamp: string) => {
@@ -76,8 +81,69 @@ const normalizeRow = (row: any): RawDataRow => {
     longitude: row[COL_LON] ? Number.parseFloat(row[COL_LON]) : null,
     speed: row[COL_SPEED] ? Number.parseFloat(row[COL_SPEED]) : null,
     navStatus: row[COL_NAVSTATUS] || "",
+    isGapMarker: row.isGapMarker || false,
+    gapDuration: row.gapDuration,
     ...row // Incluir todas las demás columnas del CSV original
   }
+}
+
+const calculateGapDuration = (startTime: string, endTime: string): string => {
+  try {
+    const start = new Date(startTime).getTime()
+    const end = new Date(endTime).getTime()
+    const diffMs = end - start
+    
+    const seconds = (diffMs / 1000).toFixed(2)
+    return `${seconds}s`
+  } catch {
+    return "0s"
+  }
+}
+
+const insertGapMarkers = (rows: any[]): any[] => {
+  if (rows.length === 0) return rows
+  
+  const result: any[] = []
+  
+  for (let i = 0; i < rows.length; i++) {
+    const currentRow = rows[i]
+    
+    // Agregar la fila actual
+    result.push(currentRow)
+    
+    // Verificar si hay un siguiente elemento
+    if (i < rows.length - 1) {
+      const nextRow = rows[i + 1]
+      const currentTime = currentRow[COL_TIME]
+      const nextTime = nextRow[COL_TIME]
+      
+      if (currentTime && nextTime) {
+        try {
+          const currentMs = new Date(currentTime).getTime()
+          const nextMs = new Date(nextTime).getTime()
+          const gapMs = nextMs - currentMs
+          
+          // Si el gap es mayor a 0.5 segundos, insertar marcador
+          if (gapMs > MAX_GAP_THRESHOLD_MS) {
+            const gapMarker: any = {
+              [COL_TIME]: currentTime, // Usar el tiempo de la muestra anterior
+              [COL_LAT]: null,
+              [COL_LON]: null,
+              [COL_SPEED]: null,
+              [COL_NAVSTATUS]: "GAP",
+              isGapMarker: true,
+              gapDuration: calculateGapDuration(currentTime, nextTime)
+            }
+            result.push(gapMarker)
+          }
+        } catch {
+          // Si hay error al parsear fechas, continuar sin insertar marcador
+        }
+      }
+    }
+  }
+  
+  return result
 }
 
 export function useCSVConverter() {
@@ -137,8 +203,11 @@ export function useCSVConverter() {
         }
       })
 
+      // Insertar marcadores de gap donde sea necesario
+      const combinedWithGapMarkers = insertGapMarkers(combined)
+
       // Normalizar los datos a la estructura RawDataRow
-      const normalizedData = combined.map(normalizeRow)
+      const normalizedData = combinedWithGapMarkers.map(normalizeRow)
 
       return {
         success: true,

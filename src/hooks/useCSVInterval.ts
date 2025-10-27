@@ -211,6 +211,37 @@ const calculateAverageSpeed = (points: Array<{speed: number | null}>): number | 
   return validSpeeds.reduce((sum, speed) => sum + speed, 0) / validSpeeds.length
 }
 
+const detectGapsInJourney = (journeyData: RawDataRow[]): GapInterval[] => {
+  const gaps: GapInterval[] = []
+  
+  for (let i = 0; i < journeyData.length; i++) {
+    const row = journeyData[i]
+    
+    // Detectar filas marcadoras de gap
+    if (row.isGapMarker === true || row.navStatus === "GAP") {
+      // Encontrar la siguiente fila con datos reales
+      let nextValidRow: RawDataRow | null = null
+      for (let j = i + 1; j < journeyData.length; j++) {
+        if (!journeyData[j].isGapMarker && journeyData[j].navStatus !== "GAP") {
+          nextValidRow = journeyData[j]
+          break
+        }
+      }
+      
+      gaps.push({
+        startTime: row.timestamp,
+        endTime: nextValidRow?.timestamp || row.timestamp,
+        duration: row.gapDuration || "0s",
+        reason: `Gap detectado: ${row.gapDuration || "duración desconocida"}`,
+        beforeJourneyIndex: -1, // Se actualizará después
+        afterJourneyIndex: -1   // Se actualizará después
+      })
+    }
+  }
+  
+  return gaps
+}
+
 const classifyIntervalType = (
   navStatus: string, 
   startPortDistances: PortAnalysisWithMin, 
@@ -420,6 +451,11 @@ export function useCSVInterval() {
       for (let i = 0; i < rawData.length; i++) {
         const row = rawData[i]
         
+        // Ignorar filas marcadoras de gap
+        if (row.isGapMarker === true || row.navStatus === "GAP") {
+          continue
+        }
+        
         // Validar coordenadas
         if (row.latitude === null || row.longitude === null || 
             isNaN(row.latitude) || isNaN(row.longitude)) {
@@ -478,28 +514,51 @@ export function useCSVInterval() {
       
       for (let journeyIndex = 0; journeyIndex < journeyBoundaries.length; journeyIndex++) {
         const boundary = journeyBoundaries[journeyIndex]
-        const journeyData = rawData.slice(boundary.startIndex, boundary.endIndex + 1)
+        const journeyDataRaw = rawData.slice(boundary.startIndex, boundary.endIndex + 1)
+        
+        // Detectar gaps en el trayecto (antes de filtrar)
+        const journeyGaps = detectGapsInJourney(journeyDataRaw)
+        const hasGaps = journeyGaps.length > 0
+        
+        // Filtrar las filas marcadoras de gap para el procesamiento de intervalos
+        const journeyData = journeyDataRaw.filter(row => !row.isGapMarker && row.navStatus !== "GAP")
+        
+        // Agregar gaps al array global con el índice de trayecto correcto
+        journeyGaps.forEach(gap => {
+          gaps.push({
+            ...gap,
+            beforeJourneyIndex: journeyIndex + 1,
+            afterJourneyIndex: journeyIndex + 1
+          })
+        })
+        
+        // Marcar como incompleto si tiene gaps o si no es completo por otra razón
+        const isIncomplete = !boundary.isComplete || hasGaps
+        
+        // Obtener el primer y último elemento válido (no marcador) para metadatos
+        const firstValidRow = journeyData[0]
+        const lastValidRow = journeyData[journeyData.length - 1]
         
         // Saltar trayectos incompletos - no clasificar sus intervalos
-        if (!boundary.isComplete) {
+        if (isIncomplete) {
           journeys.push({
             journeyIndex: journeyIndex + 1,
             intervals: [], // Sin intervalos clasificados
             metadata: {
               startPort: boundary.startPort,
               endPort: boundary.endPort,
-              startDate: rawData[boundary.startIndex]?.date || "",
-              endDate: rawData[boundary.endIndex]?.date || "",
-              startTime: rawData[boundary.startIndex]?.timestamp || "",
-              endTime: rawData[boundary.endIndex]?.timestamp || "",
+              startDate: firstValidRow?.date || "",
+              endDate: lastValidRow?.date || "",
+              startTime: firstValidRow?.timestamp || "",
+              endTime: lastValidRow?.timestamp || "",
               totalDuration: calculateTimeDifference(
-                rawData[boundary.startIndex]?.timestamp || "",
-                rawData[boundary.endIndex]?.timestamp || ""
+                firstValidRow?.timestamp || "",
+                lastValidRow?.timestamp || ""
               ),
               isIncomplete: true,
               incompleteness: {
                 start: false,
-                end: true
+                end: !boundary.isComplete || hasGaps
               },
               intervalCount: 0,
               classificationTypes: []
@@ -606,13 +665,13 @@ export function useCSVInterval() {
           metadata: {
             startPort: boundary.startPort,
             endPort: boundary.endPort,
-            startDate: rawData[boundary.startIndex]?.date || "",
-            endDate: rawData[boundary.endIndex]?.date || "",
-            startTime: rawData[boundary.startIndex]?.timestamp || "",
-            endTime: rawData[boundary.endIndex]?.timestamp || "",
+            startDate: firstValidRow?.date || "",
+            endDate: lastValidRow?.date || "",
+            startTime: firstValidRow?.timestamp || "",
+            endTime: lastValidRow?.timestamp || "",
             totalDuration: calculateTimeDifference(
-              rawData[boundary.startIndex]?.timestamp || "",
-              rawData[boundary.endIndex]?.timestamp || ""
+              firstValidRow?.timestamp || "",
+              lastValidRow?.timestamp || ""
             ),
             isIncomplete: !boundary.isComplete,
             incompleteness: {
