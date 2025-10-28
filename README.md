@@ -26,6 +26,7 @@ Ofrece análisis detallados de rutas, actividades portuarias y estadísticas de 
 - **[React 18](https://react.dev/)** - Componentes interactivos
 - **[TypeScript](https://www.typescriptlang.org/)** - Tipado estático
 - **[Tailwind CSS](https://tailwindcss.com/)** - Framework de CSS
+- **[Leaflet](https://leafletjs.com/)** - Biblioteca de mapas interactivos
 - **[Recharts](https://recharts.org/)** - Biblioteca de gráficos
 - **[Radix UI](https://www.radix-ui.com/)** - Componentes de UI accesibles
 - **[Lucide React](https://lucide.dev/)** - Iconos
@@ -33,23 +34,38 @@ Ofrece análisis detallados de rutas, actividades portuarias y estadísticas de 
 
 ## 📦 Instalación
 
-1. Clona el repositorio:
+### Prerrequisitos
+- **Node.js** ≥ 18.0.0
+- **pnpm** ≥ 8.0.0 (recomendado) o npm/yarn
+
+### Pasos de instalación
+
+1. **Clonar el repositorio**
 ```bash
-git clone https://github.com/Drossi97/Dashboard-Project.git
-cd Dashboard-Project
+git clone https://github.com/Drossi97/Dashboard-tool.git
+cd Dashboard-tool
 ```
 
-2. Instala las dependencias (usando pnpm):
+2. **Instalar dependencias**
 ```bash
 pnpm install
 ```
 
-3. Ejecuta el servidor de desarrollo:
+3. **Ejecutar en modo desarrollo**
 ```bash
 pnpm dev
 ```
 
-4. Abre [http://localhost:4321](http://localhost:4321) en tu navegador.
+4. **Abrir en navegador**
+```
+http://localhost:4321
+```
+
+### Scripts disponibles
+- `pnpm dev` - Servidor de desarrollo
+- `pnpm build` - Construir para producción
+- `pnpm preview` - Previsualizar build de producción
+- `pnpm astro` - CLI de Astro
 
 ## 📝 Formato de archivos CSV
 
@@ -60,13 +76,6 @@ Los archivos CSV deben contener las siguientes columnas:
 - Información de puertos
 - Velocidad y duración
 
-
-## 📜 Scripts disponibles
-
-- `pnpm dev` - Inicia el servidor de desarrollo en http://localhost:4321
-- `pnpm build` - Genera el build de producción
-- `pnpm preview` - Previsualiza el build de producción
-- `pnpm astro` - Ejecuta comandos de Astro CLI
 
 ## 🌐 Despliegue
 
@@ -102,26 +111,54 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+### Leaflet
+
+Este proyecto utiliza [Leaflet](https://leafletjs.com/), una biblioteca de código abierto para mapas interactivos móviles.
+
+**BSD 2-Clause License**
+
+Copyright (c) 2010-2023, Leaflet contributors
+All rights reserved.
+
 ### Otras bibliotecas
 
 Este proyecto también utiliza otras bibliotecas de código abierto bajo licencia MIT:
-- Astro (Copyright © Astro Technology Company)
-- React (Copyright © Meta Platforms, Inc.)
-- Tailwind CSS (Copyright © Tailwind Labs, Inc.)
-- Radix UI (Copyright © WorkOS)
-- Lucide Icons (Copyright © Lucide Contributors)
+- **Astro** (Copyright © Astro Technology Company)
+- **React** (Copyright © Meta Platforms, Inc.)
+- **Tailwind CSS** (Copyright © Tailwind Labs, Inc.)
+- **Radix UI** (Copyright © WorkOS)
+- **Lucide Icons** (Copyright © Lucide Contributors)
+- **Class Variance Authority** (Copyright © Joe Bell)
+- **clsx** (Copyright © Luke Edwards)
+- **Tailwind Merge** (Copyright © Dany Castillo)
 
 Todas las licencias completas se pueden encontrar en sus respectivos paquetes en `node_modules`.
+
+### Servicios de Mapas
+
+Este proyecto utiliza tiles de mapas proporcionados por [CARTO](https://carto.com/):
+- **Servicio**: CartoDB Voyager Basemap
+- **URL**: `https://{s}.basemaps.cartocdn.com/rastertiles/voyager/`
+- **Licencia**: [© CARTO](https://carto.com/legal/) - Uso gratuito con atribución
+
+## ⚖️ Cumplimiento Legal
+
+### Licencias de Código Abierto
+- ✅ Todas las bibliotecas utilizadas tienen licencias compatibles (MIT, BSD)
+- ✅ Se mantienen los avisos de copyright originales
+- ✅ No hay conflictos de licencias entre dependencias
+- ✅ El proyecto puede ser usado comercialmente
+
+### Atribución Requerida
+- **Leaflet**: BSD 2-Clause (requiere preservar copyright)
+- **Recharts**: MIT (requiere preservar copyright)
+- **CARTO**: Atribución en mapas (incluida automáticamente)
+
+### Recomendaciones
+- Mantener archivos de licencia originales en `node_modules`
+- No modificar avisos de copyright de bibliotecas de terceros
+- Incluir atribución adecuada en cualquier distribución
 
 ## 👨‍💻 Autor
 
 **David Rossi** - [Drossi97](https://github.com/Drossi97)
-
-## 🔗 Enlaces
-
-- **Repositorio**: [https://github.com/Drossi97/Dashboard-Project](https://github.com/Drossi97/Dashboard-Project)
-- **Documentación de Astro**: [https://docs.astro.build](https://docs.astro.build)
-
-## ⚠️ Estado del Proyecto
-
-Este proyecto está en fase de desarrollo activo. Algunas características pueden estar en pruebas o sujetas a cambios.
